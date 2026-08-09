@@ -16,4 +16,12 @@ def account_ledger(account_id):
         "WHERE from_account = %s OR to_account = %s" % (account_id, account_id)
     ).fetchall()
     db.close()
-    return jsonify([dict(r) for r in rows])
+
+    # amount is integer cents now (stage 3) - relabeled in the response to
+    # match accounts/transactions' *_cents field naming.
+    result = []
+    for r in rows:
+        entry = dict(r)
+        entry["amount_cents"] = entry.pop("amount")
+        result.append(entry)
+    return jsonify(result)

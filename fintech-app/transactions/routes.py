@@ -10,7 +10,9 @@ def transfer():
     data = request.get_json(force=True)
     from_id = data.get("from_account")
     to_id = data.get("to_account")
-    amount = float(data.get("amount", 0))
+    # Integer cents, not a float dollar amount - same schema-wide fix as
+    # accounts.balance, so the two never disagree on unit or type again.
+    amount_cents = int(data.get("amount_cents", 0))
     idempotency_key = data.get("idempotency_key")
     if not idempotency_key:
         return jsonify({"error": "idempotency_key required"}), 400
@@ -24,7 +26,7 @@ def transfer():
     ).fetchone()
     if existing:
         db.close()
-        return jsonify({"status": "completed", "amount": existing["amount"]}), 201
+        return jsonify({"status": "completed", "amount_cents": existing["amount"]}), 201
 
     # Confirm the destination exists before touching any balance, so an
     # unknown to_account never debits from_account first.
@@ -41,7 +43,7 @@ def transfer():
     # a crash before the final commit leaves nothing partially applied.
     cur = db.execute(
         "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?",
-        (amount, from_id, amount),
+        (amount_cents, from_id, amount_cents),
     )
     if cur.rowcount == 0:
         from_row = db.execute("SELECT balance FROM accounts WHERE id = ?", (from_id,)).fetchone()
@@ -50,13 +52,13 @@ def transfer():
             return jsonify({"error": "unknown from_account"}), 400
         return jsonify({"error": "insufficient funds"}), 400
 
-    db.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount, to_id))
+    db.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount_cents, to_id))
 
     db.execute(
         "INSERT INTO transactions (from_account, to_account, amount, status, created_at, idempotency_key) "
         "VALUES (?, ?, ?, 'completed', datetime('now'), ?)",
-        (from_id, to_id, amount, idempotency_key),
+        (from_id, to_id, amount_cents, idempotency_key),
     )
     db.commit()
     db.close()
-    return jsonify({"status": "completed", "amount": amount}), 201
+    return jsonify({"status": "completed", "amount_cents": amount_cents}), 201
