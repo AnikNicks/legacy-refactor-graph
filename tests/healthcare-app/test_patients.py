@@ -6,15 +6,27 @@ def test_register_creates_patient(client):
     assert "id" in resp.get_json()
 
 
-def test_get_patient_returns_full_record_including_ssn(client):
-    # Characterizes the current over-exposure finding: SELECT * with no
-    # field-level authorization returns ssn/dob to any caller who can reach
-    # this route at all.
+def test_get_patient_excludes_ssn_dob_by_default(client):
+    # Stage 3 fixed the over-exposure finding: the default response no
+    # longer includes ssn/dob at all.
     patient_id = client.post(
         "/patients", json={"name": "Jane Doe", "dob": "1990-01-01", "ssn": "123-45-6789", "phone": "555-1234"}
     ).get_json()["id"]
 
     resp = client.get(f"/patients/{patient_id}")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert "ssn" not in body
+    assert "dob" not in body
+    assert body["name"] == "Jane Doe"
+
+
+def test_get_patient_includes_ssn_dob_when_explicitly_requested(client):
+    patient_id = client.post(
+        "/patients", json={"name": "Jane Doe", "dob": "1990-01-01", "ssn": "123-45-6789", "phone": "555-1234"}
+    ).get_json()["id"]
+
+    resp = client.get(f"/patients/{patient_id}", query_string={"include_sensitive": "true"})
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["ssn"] == "123-45-6789"
