@@ -1,3 +1,5 @@
+import sqlite3
+
 from flask import Blueprint, jsonify, request
 
 from shared.db import get_db
@@ -9,17 +11,22 @@ appointments_bp = Blueprint("appointments", __name__)
 def schedule_appointment():
     data = request.get_json(force=True)
 
-    # No check for the same provider already having an appointment at this
-    # time - two patients can be booked with the same provider in the same
-    # slot with nothing here to catch it.
+    # A unique index on (provider, scheduled_at) makes the double-booking
+    # check atomic at the database level rather than a separate SELECT then
+    # INSERT (which would have the same read-then-write race the other
+    # example apps' fixes have been closing all session).
     db = get_db()
-    cur = db.execute(
-        "INSERT INTO appointments (patient_id, provider, scheduled_at, status) "
-        "VALUES (?, ?, ?, 'scheduled')",
-        (data.get("patient_id"), data.get("provider"), data.get("scheduled_at")),
-    )
+    try:
+        cur = db.execute(
+            "INSERT INTO appointments (patient_id, provider, scheduled_at, status) "
+            "VALUES (?, ?, ?, 'scheduled')",
+            (data.get("patient_id"), data.get("provider"), data.get("scheduled_at")),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        db.close()
+        return jsonify({"error": "provider already has an appointment at that time"}), 409
     appointment_id = cur.lastrowid
-    db.commit()
     db.close()
     return jsonify({"id": appointment_id}), 201
 
