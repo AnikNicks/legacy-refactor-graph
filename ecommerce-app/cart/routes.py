@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 
+from inventory.service import InsufficientStockError, UnknownProductError, decrement_stock
 from shared.db import get_db
 
 cart_bp = Blueprint("cart", __name__)
@@ -27,17 +28,17 @@ def checkout():
             db.close()
             return jsonify({"error": f"unknown product {item['product_id']}"}), 400
 
-        # Duplicates inventory.adjust_stock's read-modify-write pattern
-        # instead of calling it - two different pieces of code doing the same
-        # non-atomic decrement, so a fix to one won't fix the other.
-        stock_row = db.execute(
-            "SELECT stock_qty FROM inventory WHERE product_id = ?", (item["product_id"],)
-        ).fetchone()
-        new_qty = (stock_row["stock_qty"] if stock_row else 0) - item["qty"]
-        db.execute(
-            "UPDATE inventory SET stock_qty = ? WHERE product_id = ?",
-            (new_qty, item["product_id"]),
-        )
+        # Goes through inventory's declared interface instead of
+        # reimplementing its own decrement - inventory.service.decrement_stock
+        # is the one atomic, guarded implementation both routes now share.
+        try:
+            decrement_stock(item["product_id"], item["qty"], conn=db)
+        except UnknownProductError:
+            db.close()
+            return jsonify({"error": f"unknown product {item['product_id']}"}), 400
+        except InsufficientStockError:
+            db.close()
+            return jsonify({"error": f"insufficient stock for product {item['product_id']}"}), 400
 
         line_total = product["price_cents"] * item["qty"]
         subtotal_cents += line_total

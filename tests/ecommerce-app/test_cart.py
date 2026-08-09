@@ -46,6 +46,36 @@ def test_get_order_unknown(client):
     assert resp.status_code == 404
 
 
+def test_checkout_rejects_insufficient_stock(client):
+    # Stage 2: checkout now goes through inventory's guarded decrement
+    # instead of blindly applying it, so an over-large order is rejected
+    # rather than driving stock negative.
+    product_id = _create_product(client, stock=5)
+
+    resp = client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 10}]})
+    assert resp.status_code == 400
+
+    stock = client.get(f"/inventory/{product_id}").get_json()["stock_qty"]
+    assert stock == 5
+
+
+def test_checkout_rolls_back_earlier_items_when_a_later_item_fails(client):
+    # Proves stage 2's decrement_stock(conn=db) actually participates in
+    # checkout's own transaction: the first item's decrement must not stick
+    # around uncommitted-but-applied when a later item in the same request
+    # fails and the whole checkout is abandoned.
+    product_a = _create_product(client, stock=10)
+
+    resp = client.post(
+        "/cart/checkout",
+        json={"items": [{"product_id": product_a, "qty": 3}, {"product_id": 999999, "qty": 1}]},
+    )
+    assert resp.status_code == 400
+
+    stock = client.get(f"/inventory/{product_a}").get_json()["stock_qty"]
+    assert stock == 10  # product_a's decrement must have rolled back, not stuck at 7
+
+
 def test_checkout_has_no_idempotency_protection(client):
     # Characterizes the current (buggy) behavior explicitly named in
     # archaeology/risk-assessor: retrying the identical checkout request
