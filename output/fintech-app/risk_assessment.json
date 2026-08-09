@@ -1,0 +1,46 @@
+{
+  "target": "fintech-app",
+  "ranked_modules": [
+    {
+      "module": "transactions",
+      "churn_score": 1.0,
+      "complexity_score": 3.5,
+      "coupling_score": 6.0,
+      "security_score": 3.0,
+      "total_score": 13.5,
+      "rationale": "Highest risk in this target and the most severe finding across every example analyzed so far: the transfer endpoint's non-atomic read-check-write sequence is a real double-spend under concurrency, and a mid-transfer crash silently unbalances the ledger. No idempotency key compounds it - a retried request moves money twice. This is a financial-integrity bug, not a style issue; complexity_score reflects the multi-step, unlocked sequence, not line count."
+    },
+    {
+      "module": "accounts",
+      "churn_score": 1.0,
+      "complexity_score": 1.5,
+      "coupling_score": 2.0,
+      "security_score": 5.0,
+      "total_score": 9.5,
+      "rationale": "No transfer-style atomicity bug of its own, but it's where float-typed currency enters the system (starting_balance taken and stored as a Python float) - every downstream precision issue traces back to this module's - and the schema's - choice of type."
+    },
+    {
+      "module": "ledger",
+      "churn_score": 1.0,
+      "complexity_score": 1.0,
+      "coupling_score": 3.0,
+      "security_score": 5.5,
+      "total_score": 10.5,
+      "rationale": "The target's one SQL injection surface (string-formatted WHERE clause), but read-only - the worst case is unauthorized data exposure, not fund loss, which is why it ranks below transactions despite a comparable security_score."
+    },
+    {
+      "module": "shared",
+      "churn_score": 1.0,
+      "complexity_score": 1.0,
+      "coupling_score": 4.0,
+      "security_score": 2.0,
+      "total_score": 8.0,
+      "rationale": "Infrastructure, but the accounts.balance and transactions.amount REAL columns it defines are the schema-level root of the float-currency finding - fixing that requires a migration here, not just an application patch in accounts or transactions."
+    }
+  ],
+  "findings": [
+    "transactions.transfer is the single highest-severity finding across all four example targets analyzed so far (this one plus the other three in output/examples.json): it's a direct, reproducible path to losing or duplicating money, not a hypothetical or edge-case risk.",
+    "Float-typed currency (REAL columns for balance and amount) is a schema-level decision, not just an application bug - any fix needs a migration to integer cents (or a decimal type) plus every call site that reads or writes these columns, not a single-function patch.",
+    "No tests exist anywhere in the target, so every score above is based on static reading, not observed behavior under concurrent transfer load - which is exactly the condition the flagship bug depends on to manifest."
+  ]
+}

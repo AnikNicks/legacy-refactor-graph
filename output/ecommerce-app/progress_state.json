@@ -1,0 +1,15 @@
+{
+  "target": "ecommerce-app",
+  "branch": null,
+  "status": "analysis_complete",
+  "phases": [
+    { "phase": "0", "name": "preflight", "status": "complete", "summary": "Target exists; no branch created (analysis-only run, no code changes planned).", "timestamp": "2026-08-09T01:00:00Z" },
+    { "phase": "1", "name": "archaeologist", "status": "complete", "summary": "4 modules, 7 entry points, 4 schema tables with FKs, cart/inventory duplication + cart/catalog data-layer coupling documented.", "timestamp": "2026-08-09T01:05:00Z" },
+    { "phase": "2", "name": "risk_assessor", "status": "complete", "summary": "Ranked cart > shared > catalog > inventory; flagged the duplicated non-atomic decrement as the core systemic risk.", "timestamp": "2026-08-09T01:10:00Z" },
+    { "phase": "3", "name": "fan_out", "status": "not_started", "summary": "Deliberately not run this session - analysis-only scope for this example.", "timestamp": null },
+    { "phase": "4", "name": "human_gate", "status": "not_started", "summary": "", "timestamp": null },
+    { "phase": "5", "name": "stage_execution", "status": "not_started", "summary": "", "timestamp": null, "stages": [] },
+    { "phase": "6", "name": "synthesis", "status": "not_started", "summary": "", "timestamp": null }
+  ],
+  "blockers": []
+}

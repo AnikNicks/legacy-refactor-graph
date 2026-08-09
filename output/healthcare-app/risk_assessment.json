@@ -1,0 +1,46 @@
+{
+  "target": "healthcare-app",
+  "ranked_modules": [
+    {
+      "module": "records",
+      "churn_score": 1.0,
+      "complexity_score": 2.0,
+      "coupling_score": 3.0,
+      "security_score": 9.5,
+      "total_score": 15.5,
+      "rationale": "Highest risk: SQL injection on both write and read paths (create_note, search_notes), search has no access control tied to the requesting provider, and no audit trail exists despite every call touching clinical notes. The compliance context (PHI, not generic data) is why this outranks a structurally similar injection bug in a non-healthcare target."
+    },
+    {
+      "module": "patients",
+      "churn_score": 1.0,
+      "complexity_score": 2.0,
+      "coupling_score": 1.0,
+      "security_score": 9.0,
+      "total_score": 13.0,
+      "rationale": "No injection surface (all parameterized), but the highest direct PII exposure in the target: SSN/DOB logged in plaintext at registration, and get_patient's SELECT * hands back every field to any caller with no field-level authorization. list_patients compounds this with no pagination or per-provider filtering - every caller sees every patient."
+    },
+    {
+      "module": "appointments",
+      "churn_score": 1.0,
+      "complexity_score": 1.5,
+      "coupling_score": 2.0,
+      "security_score": 2.0,
+      "total_score": 6.5,
+      "rationale": "Lowest security surface in the target (parameterized, no PII beyond a patient_id reference) - the risk here is data integrity, not exposure: no check prevents double-booking the same provider in the same slot."
+    },
+    {
+      "module": "shared",
+      "churn_score": 1.0,
+      "complexity_score": 1.0,
+      "coupling_score": 4.0,
+      "security_score": 3.0,
+      "total_score": 9.0,
+      "rationale": "Infrastructure only, but flagged for blast radius - both appointments and medical_notes have real foreign keys into the patients table it owns, and it's the only path to the database for every domain module."
+    }
+  ],
+  "findings": [
+    "This target's risk profile is fundamentally different from a generic web app: the same SQL-injection code smell that shows up elsewhere carries materially higher severity here because the data behind it is PHI, not generic application data - risk-assessor is weighting security_score for records higher than a structurally identical bug would score in a non-regulated target.",
+    "No audit trail exists anywhere in the target despite three of four modules handling PHI directly. This is a finding on its own, independent of any single module's score - a compliance program built on this codebase as-is would have no record of who accessed what patient data when.",
+    "No tests exist anywhere in the target, so every score above is based on static reading, not observed behavior."
+  ]
+}

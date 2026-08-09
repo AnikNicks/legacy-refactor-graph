@@ -1,0 +1,74 @@
+{
+  "target": "ecommerce-app",
+  "modules": [
+    {
+      "name": "catalog",
+      "path": "ecommerce-app/catalog",
+      "loc": 74,
+      "churn_commits": 1,
+      "description": "Product listing, single-product lookup, and product creation. Lists products with an N+1 query pattern - one query for the product list, then one additional query per product to fetch its stock, instead of a single join."
+    },
+    {
+      "name": "inventory",
+      "path": "ecommerce-app/inventory",
+      "loc": 44,
+      "churn_commits": 1,
+      "description": "Stock lookup and adjustment. adjust_stock reads the current quantity, computes the new value in Python, and writes it back as a separate statement - not atomic."
+    },
+    {
+      "name": "cart",
+      "path": "ecommerce-app/cart",
+      "loc": 89,
+      "churn_commits": 1,
+      "description": "Checkout and order lookup. checkout re-implements inventory's stock-decrement logic independently (reads products directly rather than going through catalog, and decrements inventory directly rather than calling inventory's adjust endpoint), and computes tax with a rate hardcoded only in this module."
+    },
+    {
+      "name": "shared",
+      "path": "ecommerce-app/shared",
+      "loc": 74,
+      "churn_commits": 1,
+      "description": "Not a domain module - infrastructure. Flask app factory and the sqlite connection helper every other module depends on. Owns the products/inventory/orders/order_items schema."
+    }
+  ],
+  "entry_points": [
+    { "module": "catalog", "path": "ecommerce-app/catalog/routes.py:8", "kind": "http-route", "description": "GET /products - list, N+1 query against inventory per product." },
+    { "module": "catalog", "path": "ecommerce-app/catalog/routes.py:31", "kind": "http-route", "description": "GET /products/<id> - single product + stock." },
+    { "module": "catalog", "path": "ecommerce-app/catalog/routes.py:54", "kind": "http-route", "description": "POST /products - create product + seed its inventory row." },
+    { "module": "inventory", "path": "ecommerce-app/inventory/routes.py:8", "kind": "http-route", "description": "GET /inventory/<product_id> - current stock." },
+    { "module": "inventory", "path": "ecommerce-app/inventory/routes.py:18", "kind": "http-route", "description": "POST /inventory/<product_id>/adjust - non-atomic read-modify-write stock delta." },
+    { "module": "cart", "path": "ecommerce-app/cart/routes.py:15", "kind": "http-route", "description": "POST /cart/checkout - creates an order, duplicates inventory's decrement logic, hardcoded 8% tax, no idempotency key." },
+    { "module": "cart", "path": "ecommerce-app/cart/routes.py:60", "kind": "http-route", "description": "GET /cart/orders/<id> - order + line items." }
+  ],
+  "schema_tables": [
+    { "name": "products", "columns": ["id", "name", "price_cents", "category"], "foreign_keys": [] },
+    { "name": "inventory", "columns": ["product_id", "stock_qty"], "foreign_keys": ["inventory.product_id -> products.id"] },
+    { "name": "orders", "columns": ["id", "status", "total_cents", "created_at"], "foreign_keys": [] },
+    { "name": "order_items", "columns": ["id", "order_id", "product_id", "qty", "unit_price_cents"], "foreign_keys": ["order_items.order_id -> orders.id", "order_items.product_id -> products.id"] }
+  ],
+  "coupling_notes": [
+    {
+      "from_module": "cart",
+      "to_module": "inventory",
+      "description": "cart.checkout duplicates inventory.adjust_stock's exact read-modify-write pattern instead of calling it - two independent implementations of the same non-atomic decrement, so a fix to one (e.g. adding locking) won't fix the other.",
+      "evidence": "ecommerce-app/cart/routes.py checkout() re-reads and re-writes inventory.stock_qty directly rather than calling inventory's adjust_stock route/logic."
+    },
+    {
+      "from_module": "cart",
+      "to_module": "catalog",
+      "description": "cart reads the products table directly for pricing instead of going through catalog's API - cart has to know products' schema, not just catalog's interface.",
+      "evidence": "ecommerce-app/cart/routes.py checkout(): 'SELECT price_cents FROM products WHERE id = ?' against the table catalog owns."
+    },
+    {
+      "from_module": "cart",
+      "to_module": "shared",
+      "description": "order_items has real foreign keys into both orders and products, so cart's own tables can't be understood independently of catalog's schema.",
+      "evidence": "ecommerce-app/shared/db.py order_items table definition."
+    }
+  ],
+  "deep_dive_notes": [
+    "Churn is uninformative this run - the whole tree was introduced in a single commit, so every module shows churn_commits=1.",
+    "The tax rate (8%) is a module-level constant in cart/routes.py only; no other module references it, so if the business rate changes, whoever updates it has to know to look in cart specifically.",
+    "No idempotency key anywhere in checkout - retrying the same POST (e.g. a client timeout after a server-side success) creates a duplicate order and decrements inventory a second time for the same purchase.",
+    "No tests exist anywhere in this target. No input validation on any route (e.g. checkout doesn't validate qty is positive, adjust_stock doesn't validate the delta)."
+  ]
+}

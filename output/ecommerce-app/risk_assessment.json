@@ -1,0 +1,46 @@
+{
+  "target": "ecommerce-app",
+  "ranked_modules": [
+    {
+      "module": "cart",
+      "churn_score": 1.0,
+      "complexity_score": 4.0,
+      "coupling_score": 8.0,
+      "security_score": 2.0,
+      "total_score": 15.0,
+      "rationale": "Highest-risk module: duplicates inventory's non-atomic stock decrement independently (a fix to inventory.adjust_stock won't fix checkout), reaches directly into catalog's products table for pricing, and has no idempotency key on checkout - a retried request both double-charges and double-decrements stock. Complexity is elevated by checkout's multi-step loop (per-item DB reads/writes with no transaction boundary)."
+    },
+    {
+      "module": "inventory",
+      "churn_score": 1.0,
+      "complexity_score": 2.0,
+      "coupling_score": 3.0,
+      "security_score": 1.0,
+      "total_score": 7.0,
+      "rationale": "Owns the core non-atomic read-modify-write bug (adjust_stock), but is otherwise small and self-contained - its risk is entirely the concurrency bug, not size or coupling. Lower coupling score than cart since nothing reaches into its internals directly; cart just reimplements its logic rather than depending on it."
+    },
+    {
+      "module": "catalog",
+      "churn_score": 1.0,
+      "complexity_score": 2.5,
+      "coupling_score": 3.0,
+      "security_score": 1.0,
+      "total_score": 7.5,
+      "rationale": "The N+1 query in list_products is a performance risk that scales with catalog size, not a correctness or security risk - qualitatively different from cart/inventory's data-integrity risk. Ranked near inventory because performance degradation under real product-catalog scale is a genuine operational risk, just not urgent at demo scale."
+    },
+    {
+      "module": "shared",
+      "churn_score": 1.0,
+      "complexity_score": 1.0,
+      "coupling_score": 5.0,
+      "security_score": 1.0,
+      "total_score": 8.0,
+      "rationale": "Lowest own-complexity (infrastructure only) but flagged with an elevated coupling score for blast radius: every domain module depends on it for database access, and it owns the order_items foreign keys that tie cart's tables to catalog's."
+    }
+  ],
+  "findings": [
+    "The core risk in this target isn't one bad module - it's the same non-atomic read-modify-write pattern for inventory appearing independently in both inventory.adjust_stock and cart.checkout. Any fix (e.g. adding a database-level atomic UPDATE ... SET stock_qty = stock_qty - ? WHERE stock_qty >= ?, or row locking) needs to land in both places or be extracted to one shared function both call.",
+    "No idempotency key exists on checkout, which compounds the inventory bug: a client retry doesn't just risk a duplicate order, it risks a duplicate stock decrement on top of an already-non-atomic decrement.",
+    "No tests exist anywhere in the target, so every score above is based on static reading, not observed behavior under concurrent load."
+  ]
+}

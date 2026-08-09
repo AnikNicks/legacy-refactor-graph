@@ -1,0 +1,69 @@
+{
+  "target": "healthcare-app",
+  "modules": [
+    {
+      "name": "patients",
+      "path": "healthcare-app/patients",
+      "loc": 49,
+      "churn_commits": 1,
+      "description": "Patient registration and lookup. Logs the full registration payload - including SSN and DOB - via print() for debugging. get_patient does SELECT * and returns every column to any caller regardless of role. list_patients has no pagination or per-provider filtering."
+    },
+    {
+      "name": "appointments",
+      "path": "healthcare-app/appointments",
+      "loc": 35,
+      "churn_commits": 1,
+      "description": "Appointment scheduling and lookup by patient. No check for double-booking the same provider at the same time."
+    },
+    {
+      "name": "records",
+      "path": "healthcare-app/records",
+      "loc": 42,
+      "churn_commits": 1,
+      "description": "Clinical notes: add and search. Both routes build SQL via string interpolation/formatting. Search has no access control tied to the requesting provider, and nothing in this module writes an audit trail despite every call touching PHI."
+    },
+    {
+      "name": "shared",
+      "path": "healthcare-app/shared",
+      "loc": 68,
+      "churn_commits": 1,
+      "description": "Not a domain module - infrastructure. Flask app factory and sqlite connection helper. Owns the patients/appointments/medical_notes schema."
+    }
+  ],
+  "entry_points": [
+    { "module": "patients", "path": "healthcare-app/patients/routes.py:8", "kind": "http-route", "description": "POST /patients - register; logs full payload including SSN/DOB in plaintext." },
+    { "module": "patients", "path": "healthcare-app/patients/routes.py:27", "kind": "http-route", "description": "GET /patients/<id> - SELECT * returns every column to any caller." },
+    { "module": "patients", "path": "healthcare-app/patients/routes.py:40", "kind": "http-route", "description": "GET /patients - list all, no pagination or per-provider filtering." },
+    { "module": "appointments", "path": "healthcare-app/appointments/routes.py:8", "kind": "http-route", "description": "POST /appointments - schedule, no double-booking check." },
+    { "module": "appointments", "path": "healthcare-app/appointments/routes.py:24", "kind": "http-route", "description": "GET /appointments/<patient_id> - list a patient's appointments." },
+    { "module": "records", "path": "healthcare-app/records/routes.py:8", "kind": "http-route", "description": "POST /records - add clinical note, string-formatted INSERT." },
+    { "module": "records", "path": "healthcare-app/records/routes.py:26", "kind": "http-route", "description": "GET /records/search - string-formatted LIKE query, no access control, no audit trail." }
+  ],
+  "schema_tables": [
+    { "name": "patients", "columns": ["id", "name", "dob", "ssn", "phone"], "foreign_keys": [] },
+    { "name": "appointments", "columns": ["id", "patient_id", "provider", "scheduled_at", "status"], "foreign_keys": ["appointments.patient_id -> patients.id"] },
+    { "name": "medical_notes", "columns": ["id", "patient_id", "note", "author", "created_at"], "foreign_keys": ["medical_notes.patient_id -> patients.id"] }
+  ],
+  "coupling_notes": [
+    {
+      "from_module": "appointments",
+      "to_module": "shared",
+      "description": "appointments.patient_id is a real foreign key into patients, so appointment data can't be understood or migrated independently of the patients table.",
+      "evidence": "healthcare-app/shared/db.py appointments table definition."
+    },
+    {
+      "from_module": "records",
+      "to_module": "shared",
+      "description": "Same pattern: medical_notes.patient_id references patients.id.",
+      "evidence": "healthcare-app/shared/db.py medical_notes table definition."
+    }
+  ],
+  "deep_dive_notes": [
+    "Churn is uninformative this run - the whole tree was introduced in a single commit, so every module shows churn_commits=1.",
+    "PII/PHI is logged in plaintext at registration (patients/routes.py) via a bare print() - this ends up in whatever log aggregation exists with far looser access control than the database itself.",
+    "get_patient's SELECT * with no field-level authorization is the single highest-severity finding: any caller who can reach the route at all gets SSN and DOB back, not just providers actively treating that patient.",
+    "records/routes.py has the target's only SQL injection surface (both create and search), and it's in the module handling clinical notes specifically - the same code smell family seen in other example targets, but the domain context (PHI, not generic app data) meaningfully raises its severity.",
+    "No audit trail is written anywhere in the target, despite patients, appointments, and records all handling PHI - there's no record of who accessed or searched what.",
+    "No tests exist anywhere in the target. No input validation on any route."
+  ]
+}

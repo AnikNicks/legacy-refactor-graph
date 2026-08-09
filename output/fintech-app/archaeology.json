@@ -1,0 +1,64 @@
+{
+  "target": "fintech-app",
+  "modules": [
+    {
+      "name": "transactions",
+      "path": "fintech-app/transactions",
+      "loc": 53,
+      "churn_commits": 1,
+      "description": "Balance transfer between two accounts. Reads both balances, checks sufficient funds, then writes both new balances as separate, unlocked statements - not wrapped in a single atomic transaction. No idempotency key on the endpoint."
+    },
+    {
+      "name": "accounts",
+      "path": "fintech-app/accounts",
+      "loc": 35,
+      "churn_commits": 1,
+      "description": "Account creation and balance lookup. Starting balance is taken as a Python float and stored in a REAL column - the currency-precision issue starts here, at account creation, not just in transfer."
+    },
+    {
+      "name": "ledger",
+      "path": "fintech-app/ledger",
+      "loc": 19,
+      "churn_commits": 1,
+      "description": "Read-only transaction history for one account. Builds its WHERE clause via string formatting."
+    },
+    {
+      "name": "shared",
+      "path": "fintech-app/shared",
+      "loc": 56,
+      "churn_commits": 1,
+      "description": "Not a domain module - infrastructure. Flask app factory and sqlite connection helper. The accounts.balance and transactions.amount columns are typed REAL (float) at the schema level - the precision issue is baked into the schema, not just application code."
+    }
+  ],
+  "entry_points": [
+    { "module": "accounts", "path": "fintech-app/accounts/routes.py:8", "kind": "http-route", "description": "POST /accounts - create account with a float starting balance." },
+    { "module": "accounts", "path": "fintech-app/accounts/routes.py:26", "kind": "http-route", "description": "GET /accounts/<id> - balance lookup." },
+    { "module": "transactions", "path": "fintech-app/transactions/routes.py:8", "kind": "http-route", "description": "POST /transactions/transfer - non-atomic two-account balance transfer, no idempotency key." },
+    { "module": "ledger", "path": "fintech-app/ledger/routes.py:8", "kind": "http-route", "description": "GET /ledger/<account_id> - transaction history, string-formatted WHERE clause." }
+  ],
+  "schema_tables": [
+    { "name": "accounts", "columns": ["id", "owner", "balance"], "foreign_keys": [] },
+    { "name": "transactions", "columns": ["id", "from_account", "to_account", "amount", "status", "created_at"], "foreign_keys": ["transactions.from_account -> accounts.id", "transactions.to_account -> accounts.id"] }
+  ],
+  "coupling_notes": [
+    {
+      "from_module": "transactions",
+      "to_module": "shared",
+      "description": "transactions has two real foreign keys into accounts (from_account and to_account), so transfer correctness depends entirely on accounts' balance column semantics - including its float-typing.",
+      "evidence": "fintech-app/shared/db.py transactions table definition."
+    },
+    {
+      "from_module": "ledger",
+      "to_module": "transactions",
+      "description": "ledger reads the transactions table directly rather than through any interface transactions exposes - schema-level coupling via shared, not a Python import, but the two modules' correctness is still tied together.",
+      "evidence": "fintech-app/ledger/routes.py account_ledger() queries the transactions table transactions/routes.py owns."
+    }
+  ],
+  "deep_dive_notes": [
+    "Churn is uninformative this run - the whole tree was introduced in a single commit, so every module shows churn_commits=1.",
+    "The flagship bug: transfer's balance check and both balance writes are three-plus separate statements with no row locking and no single atomic transaction. Two concurrent transfers out of the same account can both read the same starting balance and both pass the sufficient-funds check - a classic double-spend. A crash between the two UPDATE statements leaves the ledger unbalanced (debited on one side, never credited on the other).",
+    "Currency is handled as Python float / sqlite REAL throughout (accounts.balance, transactions.amount) rather than integer cents - this is a schema-level decision, not just an application bug, so fixing it means a migration, not just an application-layer patch.",
+    "No idempotency key exists on the transfer endpoint - a client retry after a network timeout (the transfer may have actually succeeded server-side) submits the same request again and moves the money a second time.",
+    "No tests exist anywhere in the target. No input validation (transfer doesn't reject a negative or zero amount)."
+  ]
+}
