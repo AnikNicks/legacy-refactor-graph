@@ -22,23 +22,27 @@ def adjust_stock(product_id):
     data = request.get_json(force=True)
     delta = int(data.get("delta", 0))
 
-    # Not atomic: read the current quantity, compute the new one in Python,
-    # then write it back as a separate statement. Two concurrent requests
-    # (e.g. two orders decrementing the same product at once) can both read
-    # the same starting value and one write clobbers the other - a lost
-    # update / overselling bug under real concurrent load.
+    # Atomic and guarded: a single UPDATE with the "would it go negative"
+    # check in its own WHERE clause, so sqlite's row locking - not a
+    # Python-level read-then-write race - is what decides whether the
+    # decrement applies. Two concurrent requests against the same product
+    # can no longer both succeed off a stale read.
     db = get_db()
-    row = db.execute(
-        "SELECT stock_qty FROM inventory WHERE product_id = ?", (product_id,)
-    ).fetchone()
-    if not row:
-        db.close()
-        return jsonify({"error": "not found"}), 404
-
-    new_qty = row["stock_qty"] + delta
-    db.execute(
-        "UPDATE inventory SET stock_qty = ? WHERE product_id = ?", (new_qty, product_id)
+    cur = db.execute(
+        "UPDATE inventory SET stock_qty = stock_qty + ? WHERE product_id = ? AND stock_qty + ? >= 0",
+        (delta, product_id, delta),
     )
     db.commit()
+
+    if cur.rowcount == 0:
+        row = db.execute(
+            "SELECT stock_qty FROM inventory WHERE product_id = ?", (product_id,)
+        ).fetchone()
+        db.close()
+        if row is None:
+            return jsonify({"error": "not found"}), 404
+        return jsonify({"error": "insufficient stock"}), 400
+
+    row = db.execute("SELECT stock_qty FROM inventory WHERE product_id = ?", (product_id,)).fetchone()
     db.close()
-    return jsonify({"product_id": product_id, "stock_qty": new_qty})
+    return jsonify({"product_id": product_id, "stock_qty": row["stock_qty"]})

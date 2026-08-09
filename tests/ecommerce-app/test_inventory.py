@@ -35,11 +35,15 @@ def test_adjust_stock_unknown_product(client):
     assert resp.status_code == 404
 
 
-def test_adjust_stock_allows_negative_result(client):
-    # Characterizes current (arguably buggy) behavior: adjust_stock has no
-    # floor check, so a delta larger than the current stock produces a
-    # negative stock_qty instead of being rejected or clamped at zero.
+def test_adjust_stock_rejects_delta_that_would_go_negative(client):
+    # Stage 1 fixed this: adjust_stock now rejects a delta that would take
+    # stock_qty below zero (400, unchanged) instead of applying it and
+    # returning a negative quantity. The flip from "accepts and returns -5"
+    # to "rejected, stock unchanged at 5" is the proof the atomic guarded
+    # UPDATE is doing its job.
     product_id = _create_product(client, stock=5)
     resp = client.post(f"/inventory/{product_id}/adjust", json={"delta": -10})
-    assert resp.status_code == 200
-    assert resp.get_json()["stock_qty"] == -5
+    assert resp.status_code == 400
+
+    stock = client.get(f"/inventory/{product_id}").get_json()["stock_qty"]
+    assert stock == 5
