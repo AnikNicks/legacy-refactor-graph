@@ -1,8 +1,3 @@
-import sqlite3
-
-import pytest
-
-
 def _register_and_login(client, username="alice", password="hunter2"):
     client.post("/register", json={"username": username, "password": password, "email": "a@x.com"})
     client.post("/login", json={"username": username, "password": password})
@@ -58,12 +53,14 @@ def test_delete_note(client):
     assert client.get("/notes/alice").get_json() == []
 
 
-def test_create_note_with_apostrophe_in_title_breaks_current_implementation(client):
-    # Pins down the actual injection-adjacent bug: the string-formatted
-    # INSERT breaks on an apostrophe instead of storing it safely. If a
-    # future stage fixes the query to be parameterized, this test's
-    # expectation should change from "raises" to "stores the title as-is" —
-    # that flip is itself evidence the fix worked.
+def test_create_note_with_apostrophe_in_title_is_stored_literally(client):
+    # Stage 1 (parameterize notes' SQL) fixed this: an apostrophe in the
+    # title used to crash the string-formatted INSERT with
+    # sqlite3.OperationalError. It's now stored as ordinary data — this
+    # test's flip from "raises" to "succeeds" is the proof the fix worked.
     _register_and_login(client)
-    with pytest.raises(sqlite3.OperationalError):
-        client.post("/notes", json={"username": "alice", "title": "it's broken", "body": "x"})
+    resp = client.post("/notes", json={"username": "alice", "title": "it's broken", "body": "x"})
+    assert resp.status_code == 201
+
+    notes = client.get("/notes/alice").get_json()
+    assert notes[0]["title"] == "it's broken"

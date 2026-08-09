@@ -23,10 +23,9 @@ def create_note():
         return jsonify({"error": "unknown user"}), 403
 
     db = get_db()
-    # String-formatted SQL — classic injection smell.
     db.execute(
-        "INSERT INTO notes (username, title, body, created_at) "
-        "VALUES ('%s', '%s', '%s', datetime('now'))" % (username, title, body)
+        "INSERT INTO notes (username, title, body, created_at) VALUES (?, ?, ?, datetime('now'))",
+        (username, title, body),
     )
     db.commit()
     db.close()
@@ -36,9 +35,8 @@ def create_note():
 @notes_bp.route("/notes/<username>", methods=["GET"])
 def list_notes(username):
     db = get_db()
-    # Same injection smell on the read path.
     rows = db.execute(
-        "SELECT id, title, body, created_at FROM notes WHERE username = '%s'" % username
+        "SELECT id, title, body, created_at FROM notes WHERE username = ?", (username,)
     ).fetchall()
     db.close()
     return jsonify([dict(r) for r in rows])
@@ -51,9 +49,8 @@ def update_note(note_id):
     body = data.get("body", "")
 
     db = get_db()
-    # Injection smell again, in the one place it's easiest to miss on review.
     db.execute(
-        "UPDATE notes SET title = '%s', body = '%s' WHERE id = %s" % (title, body, note_id)
+        "UPDATE notes SET title = ?, body = ? WHERE id = ?", (title, body, note_id)
     )
     db.commit()
     db.close()
