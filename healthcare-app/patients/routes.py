@@ -17,11 +17,6 @@ def _serialize_patient(row, include_sensitive):
 def register_patient():
     data = request.get_json(force=True)
 
-    # PII (SSN, DOB) logged in plaintext for "debugging" - print() output
-    # routinely ends up in log aggregators with far looser access control
-    # than the database itself has.
-    print(f"[patients] registering patient: {data}")
-
     db = get_db()
     cur = db.execute(
         "INSERT INTO patients (name, dob, ssn, phone) VALUES (?, ?, ?, ?)",
@@ -30,6 +25,10 @@ def register_patient():
     patient_id = cur.lastrowid
     db.commit()
     db.close()
+
+    # Logs that a registration happened and its id - never the payload
+    # itself, which is where SSN/DOB used to leak into plaintext logs.
+    print(f"[patients] registered patient id={patient_id}")
     return jsonify({"id": patient_id}), 201
 
 

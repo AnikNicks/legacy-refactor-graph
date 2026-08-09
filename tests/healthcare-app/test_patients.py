@@ -49,6 +49,17 @@ def test_list_patients_returns_everyone_no_filtering(client):
     assert len(resp.get_json()) == 2
 
 
+def test_register_does_not_log_ssn(client, capsys):
+    # Stage 4 fixed this: the debug log no longer includes the request
+    # payload, only that a registration happened and the resulting id.
+    client.post(
+        "/patients", json={"name": "Jane Doe", "dob": "1990-01-01", "ssn": "999-99-9999", "phone": "555-1234"}
+    )
+    captured = capsys.readouterr()
+    assert "999-99-9999" not in captured.out
+    assert "1990-01-01" not in captured.out
+
+
 def test_register_missing_required_name_crashes(client):
     # Characterizes current behavior: the patients table has NOT NULL on
     # name, and register() has no validation before the INSERT, so a
