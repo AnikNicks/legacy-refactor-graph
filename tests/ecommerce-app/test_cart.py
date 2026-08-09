@@ -7,7 +7,9 @@ def _create_product(client, price_cents=1999, stock=50):
 def test_checkout_creates_order_with_tax_applied(client):
     product_id = _create_product(client, price_cents=1999, stock=50)
 
-    resp = client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 2}]})
+    resp = client.post(
+        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 2}], "idempotency_key": "k1"}
+    )
     assert resp.status_code == 201
     # subtotal 3998 * 1.08 tax = 4317.84, rounded to 4318 - pins down the
     # exact hardcoded 8% rate and Python's round() behavior together.
@@ -16,21 +18,29 @@ def test_checkout_creates_order_with_tax_applied(client):
 
 def test_checkout_decrements_stock(client):
     product_id = _create_product(client, stock=50)
-    client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 3}]})
+    client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 3}], "idempotency_key": "k1"})
 
     resp = client.get(f"/inventory/{product_id}")
     assert resp.get_json()["stock_qty"] == 47
 
 
 def test_checkout_unknown_product(client):
-    resp = client.post("/cart/checkout", json={"items": [{"product_id": 999999, "qty": 1}]})
+    resp = client.post(
+        "/cart/checkout", json={"items": [{"product_id": 999999, "qty": 1}], "idempotency_key": "k1"}
+    )
+    assert resp.status_code == 400
+
+
+def test_checkout_requires_idempotency_key(client):
+    product_id = _create_product(client, stock=10)
+    resp = client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 1}]})
     assert resp.status_code == 400
 
 
 def test_get_order_returns_line_items(client):
     product_id = _create_product(client, price_cents=500, stock=10)
     order_id = client.post(
-        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 2}]}
+        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 2}], "idempotency_key": "k1"}
     ).get_json()["order_id"]
 
     resp = client.get(f"/cart/orders/{order_id}")
@@ -52,7 +62,9 @@ def test_checkout_rejects_insufficient_stock(client):
     # rather than driving stock negative.
     product_id = _create_product(client, stock=5)
 
-    resp = client.post("/cart/checkout", json={"items": [{"product_id": product_id, "qty": 10}]})
+    resp = client.post(
+        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 10}], "idempotency_key": "k1"}
+    )
     assert resp.status_code == 400
 
     stock = client.get(f"/inventory/{product_id}").get_json()["stock_qty"]
@@ -68,7 +80,10 @@ def test_checkout_rolls_back_earlier_items_when_a_later_item_fails(client):
 
     resp = client.post(
         "/cart/checkout",
-        json={"items": [{"product_id": product_a, "qty": 3}, {"product_id": 999999, "qty": 1}]},
+        json={
+            "items": [{"product_id": product_a, "qty": 3}, {"product_id": 999999, "qty": 1}],
+            "idempotency_key": "k1",
+        },
     )
     assert resp.status_code == 400
 
@@ -76,17 +91,31 @@ def test_checkout_rolls_back_earlier_items_when_a_later_item_fails(client):
     assert stock == 10  # product_a's decrement must have rolled back, not stuck at 7
 
 
-def test_checkout_has_no_idempotency_protection(client):
-    # Characterizes the current (buggy) behavior explicitly named in
-    # archaeology/risk-assessor: retrying the identical checkout request
-    # creates a second order and decrements stock a second time, rather than
-    # being recognized as a duplicate of the first.
+def test_checkout_is_idempotent_with_same_key(client):
+    # Stage 3 fixed this: retrying the identical checkout request with the
+    # same idempotency_key returns the original order instead of creating a
+    # second one and decrementing stock a second time.
     product_id = _create_product(client, stock=50)
-    payload = {"items": [{"product_id": product_id, "qty": 5}]}
+    payload = {"items": [{"product_id": product_id, "qty": 5}], "idempotency_key": "same-key"}
 
     first = client.post("/cart/checkout", json=payload)
     second = client.post("/cart/checkout", json=payload)
 
+    assert first.get_json()["order_id"] == second.get_json()["order_id"]
+    stock = client.get(f"/inventory/{product_id}").get_json()["stock_qty"]
+    assert stock == 45  # decremented once, not twice, for one logical purchase
+
+
+def test_checkout_with_different_keys_creates_separate_orders(client):
+    product_id = _create_product(client, stock=50)
+
+    first = client.post(
+        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 5}], "idempotency_key": "key-a"}
+    )
+    second = client.post(
+        "/cart/checkout", json={"items": [{"product_id": product_id, "qty": 5}], "idempotency_key": "key-b"}
+    )
+
     assert first.get_json()["order_id"] != second.get_json()["order_id"]
     stock = client.get(f"/inventory/{product_id}").get_json()["stock_qty"]
-    assert stock == 40  # 50 - 5 - 5, decremented twice for one logical purchase
+    assert stock == 40

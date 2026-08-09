@@ -15,8 +15,21 @@ TAX_RATE = 0.08
 def checkout():
     data = request.get_json(force=True)
     items = data.get("items", [])  # [{"product_id": 1, "qty": 2}, ...]
+    idempotency_key = data.get("idempotency_key")
+    if not idempotency_key:
+        return jsonify({"error": "idempotency_key required"}), 400
 
     db = get_db()
+
+    # A request with a key we've already completed returns the original
+    # result instead of moving stock or creating an order a second time.
+    existing = db.execute(
+        "SELECT id, total_cents FROM orders WHERE idempotency_key = ?", (idempotency_key,)
+    ).fetchone()
+    if existing:
+        db.close()
+        return jsonify({"order_id": existing["id"], "total_cents": existing["total_cents"]}), 201
+
     subtotal_cents = 0
     line_items = []
 
@@ -48,12 +61,9 @@ def checkout():
 
     total_cents = round(subtotal_cents * (1 + TAX_RATE))
 
-    # No idempotency key: retrying this same request (e.g. a client timeout
-    # that actually succeeded server-side) creates a second order and
-    # decrements stock a second time for the same purchase.
     cur = db.execute(
-        "INSERT INTO orders (status, total_cents, created_at) VALUES ('placed', ?, datetime('now'))",
-        (total_cents,),
+        "INSERT INTO orders (status, total_cents, created_at, idempotency_key) VALUES ('placed', ?, datetime('now'), ?)",
+        (total_cents, idempotency_key),
     )
     order_id = cur.lastrowid
     for li in line_items:

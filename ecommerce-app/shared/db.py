@@ -36,7 +36,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             status TEXT NOT NULL DEFAULT 'placed',
             total_cents INTEGER NOT NULL,
-            created_at TEXT
+            created_at TEXT,
+            idempotency_key TEXT UNIQUE
         )
         """
     )
