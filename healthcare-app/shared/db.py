@@ -36,12 +36,30 @@ def init_db():
     )
     conn.execute(
         """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_provider_slot
+        ON appointments (provider, scheduled_at)
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS medical_notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_id INTEGER NOT NULL REFERENCES patients(id),
             note TEXT NOT NULL,
             author TEXT,
             created_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            patient_id INTEGER,
+            query TEXT,
+            requester TEXT,
+            created_at TEXT NOT NULL
         )
         """
     )

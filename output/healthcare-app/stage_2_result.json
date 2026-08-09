@@ -1,0 +1,7 @@
+{
+  "stage_id": 2,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "New audit_log table; add_note/search_notes write a best-effort audit entry after their primary write succeeds, double-guarded against the audit path itself breaking the response. New failure-injection test confirms add_note still returns 201 when the audit function raises. 16/16 tests pass.",
+  "commit_sha": "dfc5e6cae369d6565967a9a6d0ad6ae60703d9ba"
+}

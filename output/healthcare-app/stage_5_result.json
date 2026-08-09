@@ -1,0 +1,7 @@
+{
+  "stage_id": 5,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "Unique index on (provider, scheduled_at) makes double-booking rejection atomic at the DB level. Second request for the same slot now 409s; different provider or time still succeeds, covered by new tests. 20/20 tests pass.",
+  "commit_sha": "8593136b5474f41aa32ac070a91abb06cbc691eb"
+}
