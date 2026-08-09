@@ -11,8 +11,20 @@ def transfer():
     from_id = data.get("from_account")
     to_id = data.get("to_account")
     amount = float(data.get("amount", 0))
+    idempotency_key = data.get("idempotency_key")
+    if not idempotency_key:
+        return jsonify({"error": "idempotency_key required"}), 400
 
     db = get_db()
+
+    # A request with a key we've already completed returns the original
+    # result instead of moving money a second time.
+    existing = db.execute(
+        "SELECT amount FROM transactions WHERE idempotency_key = ?", (idempotency_key,)
+    ).fetchone()
+    if existing:
+        db.close()
+        return jsonify({"status": "completed", "amount": existing["amount"]}), 201
 
     # Confirm the destination exists before touching any balance, so an
     # unknown to_account never debits from_account first.
@@ -40,13 +52,10 @@ def transfer():
 
     db.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount, to_id))
 
-    # No idempotency key: a client retry after a network timeout (the
-    # transfer actually succeeded, but the response was lost) submits this
-    # same request again and moves the money a second time.
     db.execute(
-        "INSERT INTO transactions (from_account, to_account, amount, status, created_at) "
-        "VALUES (?, ?, ?, 'completed', datetime('now'))",
-        (from_id, to_id, amount),
+        "INSERT INTO transactions (from_account, to_account, amount, status, created_at, idempotency_key) "
+        "VALUES (?, ?, ?, 'completed', datetime('now'), ?)",
+        (from_id, to_id, amount, idempotency_key),
     )
     db.commit()
     db.close()

@@ -29,7 +29,8 @@ def init_db():
             to_account INTEGER NOT NULL REFERENCES accounts(id),
             amount REAL NOT NULL,
             status TEXT NOT NULL DEFAULT 'completed',
-            created_at TEXT
+            created_at TEXT,
+            idempotency_key TEXT UNIQUE
         )
         """
     )

@@ -12,8 +12,14 @@ def test_ledger_lists_transfers_in_and_out(client):
     bob = _create_account(client, "Bob", 0.0)
     carol = _create_account(client, "Carol", 50.0)
 
-    client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 10.0})
-    client.post("/transactions/transfer", json={"from_account": carol, "to_account": alice, "amount": 5.0})
+    client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 10.0, "idempotency_key": "k1"},
+    )
+    client.post(
+        "/transactions/transfer",
+        json={"from_account": carol, "to_account": alice, "amount": 5.0, "idempotency_key": "k2"},
+    )
 
     resp = client.get(f"/ledger/{alice}")
     assert resp.status_code == 200

@@ -6,7 +6,10 @@ def test_transfer_moves_balance(client):
     alice = _create_account(client, "Alice", 100.0)
     bob = _create_account(client, "Bob", 20.0)
 
-    resp = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 30.0})
+    resp = client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 30.0, "idempotency_key": "k1"},
+    )
     assert resp.status_code == 201
 
     assert client.get(f"/accounts/{alice}").get_json()["balance"] == 70.0
@@ -17,7 +20,10 @@ def test_transfer_insufficient_funds_rejected(client):
     alice = _create_account(client, "Alice", 10.0)
     bob = _create_account(client, "Bob", 0.0)
 
-    resp = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 9999.0})
+    resp = client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 9999.0, "idempotency_key": "k1"},
+    )
     assert resp.status_code == 400
 
     assert client.get(f"/accounts/{alice}").get_json()["balance"] == 10.0
@@ -26,13 +32,26 @@ def test_transfer_insufficient_funds_rejected(client):
 
 def test_transfer_unknown_from_account(client):
     bob = _create_account(client, "Bob", 0.0)
-    resp = client.post("/transactions/transfer", json={"from_account": 999999, "to_account": bob, "amount": 5.0})
+    resp = client.post(
+        "/transactions/transfer",
+        json={"from_account": 999999, "to_account": bob, "amount": 5.0, "idempotency_key": "k1"},
+    )
     assert resp.status_code == 400
 
 
 def test_transfer_unknown_to_account(client):
     alice = _create_account(client, "Alice", 100.0)
-    resp = client.post("/transactions/transfer", json={"from_account": alice, "to_account": 999999, "amount": 5.0})
+    resp = client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": 999999, "amount": 5.0, "idempotency_key": "k1"},
+    )
+    assert resp.status_code == 400
+
+
+def test_transfer_requires_idempotency_key(client):
+    alice = _create_account(client, "Alice", 100.0)
+    bob = _create_account(client, "Bob", 0.0)
+    resp = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 5.0})
     assert resp.status_code == 400
 
 
@@ -44,29 +63,51 @@ def test_transfer_of_exact_balance_then_rejects_further_transfer(client):
     alice = _create_account(client, "Alice", 50.0)
     bob = _create_account(client, "Bob", 0.0)
 
-    first = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 50.0})
+    first = client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 50.0, "idempotency_key": "k1"},
+    )
     assert first.status_code == 201
     assert client.get(f"/accounts/{alice}").get_json()["balance"] == 0.0
 
-    second = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 0.01})
+    second = client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 0.01, "idempotency_key": "k2"},
+    )
     assert second.status_code == 400
     assert client.get(f"/accounts/{alice}").get_json()["balance"] == 0.0
 
 
-def test_transfer_has_no_idempotency_protection(client):
-    # Characterizes the flagship finding: retrying the identical transfer
-    # request (e.g. a client retry after a timed-out response that actually
-    # succeeded) moves the money a second time instead of being recognized
-    # as a duplicate of the first.
+def test_transfer_is_idempotent_with_same_key(client):
+    # Stage 2 fixed this: retrying the identical transfer request with the
+    # same idempotency_key returns the original result instead of moving
+    # the money a second time.
     alice = _create_account(client, "Alice", 100.0)
     bob = _create_account(client, "Bob", 0.0)
-    payload = {"from_account": alice, "to_account": bob, "amount": 30.0}
+    payload = {"from_account": alice, "to_account": bob, "amount": 30.0, "idempotency_key": "same-key"}
 
     client.post("/transactions/transfer", json=payload)
     client.post("/transactions/transfer", json=payload)
 
-    assert client.get(f"/accounts/{alice}").get_json()["balance"] == 40.0  # 100 - 30 - 30
-    assert client.get(f"/accounts/{bob}").get_json()["balance"] == 60.0  # 0 + 30 + 30
+    assert client.get(f"/accounts/{alice}").get_json()["balance"] == 70.0  # debited once, not twice
+    assert client.get(f"/accounts/{bob}").get_json()["balance"] == 30.0
+
+
+def test_transfer_with_different_keys_moves_money_twice(client):
+    alice = _create_account(client, "Alice", 100.0)
+    bob = _create_account(client, "Bob", 0.0)
+
+    client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 30.0, "idempotency_key": "key-a"},
+    )
+    client.post(
+        "/transactions/transfer",
+        json={"from_account": alice, "to_account": bob, "amount": 30.0, "idempotency_key": "key-b"},
+    )
+
+    assert client.get(f"/accounts/{alice}").get_json()["balance"] == 40.0
+    assert client.get(f"/accounts/{bob}").get_json()["balance"] == 60.0
 
 
 def test_repeated_small_transfers_accumulate_float_drift(client):
@@ -76,8 +117,11 @@ def test_repeated_small_transfers_accumulate_float_drift(client):
     alice = _create_account(client, "Alice", 10.0)
     bob = _create_account(client, "Bob", 0.0)
 
-    for _ in range(10):
-        client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 0.1})
+    for i in range(10):
+        client.post(
+            "/transactions/transfer",
+            json={"from_account": alice, "to_account": bob, "amount": 0.1, "idempotency_key": f"k{i}"},
+        )
 
     bob_balance = client.get(f"/accounts/{bob}").get_json()["balance"]
     assert bob_balance != 1.0
