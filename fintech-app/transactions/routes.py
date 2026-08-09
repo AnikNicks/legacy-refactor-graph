@@ -14,31 +14,31 @@ def transfer():
 
     db = get_db()
 
-    # The core bug: balances are read, checked, and written back as four
-    # separate statements with no row locking and no single atomic
-    # transaction wrapping all of it. Two concurrent transfers out of the
-    # same account can both read the same starting balance, both pass the
-    # sufficient-funds check, and both succeed - a classic double-spend.
-    # A crash between the two UPDATE calls below leaves the ledger
-    # unbalanced (money leaves one account and never arrives at the other).
-    from_row = db.execute("SELECT balance FROM accounts WHERE id = ?", (from_id,)).fetchone()
-    if not from_row:
-        db.close()
-        return jsonify({"error": "unknown from_account"}), 400
-    if from_row["balance"] < amount:
-        db.close()
-        return jsonify({"error": "insufficient funds"}), 400
-
-    to_row = db.execute("SELECT balance FROM accounts WHERE id = ?", (to_id,)).fetchone()
+    # Confirm the destination exists before touching any balance, so an
+    # unknown to_account never debits from_account first.
+    to_row = db.execute("SELECT id FROM accounts WHERE id = ?", (to_id,)).fetchone()
     if not to_row:
         db.close()
         return jsonify({"error": "unknown to_account"}), 400
 
-    new_from_balance = from_row["balance"] - amount
-    new_to_balance = to_row["balance"] + amount
+    # Atomic, guarded debit: a single UPDATE with the sufficient-funds check
+    # in its own WHERE clause, so sqlite's row locking - not a Python-level
+    # read-then-compare - decides whether the debit applies. Two concurrent
+    # transfers out of the same account can no longer both succeed off a
+    # stale read, and everything here shares one connection/transaction, so
+    # a crash before the final commit leaves nothing partially applied.
+    cur = db.execute(
+        "UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?",
+        (amount, from_id, amount),
+    )
+    if cur.rowcount == 0:
+        from_row = db.execute("SELECT balance FROM accounts WHERE id = ?", (from_id,)).fetchone()
+        db.close()
+        if from_row is None:
+            return jsonify({"error": "unknown from_account"}), 400
+        return jsonify({"error": "insufficient funds"}), 400
 
-    db.execute("UPDATE accounts SET balance = ? WHERE id = ?", (new_from_balance, from_id))
-    db.execute("UPDATE accounts SET balance = ? WHERE id = ?", (new_to_balance, to_id))
+    db.execute("UPDATE accounts SET balance = balance + ? WHERE id = ?", (amount, to_id))
 
     # No idempotency key: a client retry after a network timeout (the
     # transfer actually succeeded, but the response was lost) submits this

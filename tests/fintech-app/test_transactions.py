@@ -36,6 +36,23 @@ def test_transfer_unknown_to_account(client):
     assert resp.status_code == 400
 
 
+def test_transfer_of_exact_balance_then_rejects_further_transfer(client):
+    # Stage 1: exercises the atomic guarded UPDATE's WHERE clause directly
+    # rather than the old separate read-then-compare. A transfer for
+    # exactly the current balance succeeds and drops it to 0; anything
+    # further from that now-empty account is rejected.
+    alice = _create_account(client, "Alice", 50.0)
+    bob = _create_account(client, "Bob", 0.0)
+
+    first = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 50.0})
+    assert first.status_code == 201
+    assert client.get(f"/accounts/{alice}").get_json()["balance"] == 0.0
+
+    second = client.post("/transactions/transfer", json={"from_account": alice, "to_account": bob, "amount": 0.01})
+    assert second.status_code == 400
+    assert client.get(f"/accounts/{alice}").get_json()["balance"] == 0.0
+
+
 def test_transfer_has_no_idempotency_protection(client):
     # Characterizes the flagship finding: retrying the identical transfer
     # request (e.g. a client retry after a timed-out response that actually
