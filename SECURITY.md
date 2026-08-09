@@ -27,7 +27,7 @@ prompt that relies on the agent following it. Don't treat the second category as
   nothing stops a future edit to that frontmatter from loosening it — there's no separate runtime
   sandbox re-checking it.
 - **Context/output discipline.** `archaeologist`'s tier-1 inventory pass is instructed to
-  summarize rather than dump full file contents into its own context or `output/archaeology.json`
+  summarize rather than dump full file contents into its own context or `output/<target>/archaeology.json`
   — this keeps a large target from blowing the context budget and keeps `output/*.json` from
   leaking more of the codebase than a downstream phase needs. This is a prompt instruction, not a
   hard limit.

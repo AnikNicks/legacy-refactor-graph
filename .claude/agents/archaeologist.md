@@ -36,7 +36,7 @@ and you do not propose changes. That's Phase 2 and Phase 3's job.
 
 ## Output
 
-Write `output/archaeology.json`, matching `ArchaeologyReport` in `scripts/schemas.py` exactly:
+Write `output/<target>/archaeology.json`, matching `ArchaeologyReport` in `scripts/schemas.py` exactly:
 `target`, `modules` (name/path/loc/churn_commits/description), `entry_points`
 (module/path/kind/description), `schema_tables` (name/columns/foreign_keys), `coupling_notes`
 (from_module/to_module/description/evidence), `deep_dive_notes` (free-form findings from tier 2
@@ -44,7 +44,7 @@ that don't fit the other fields).
 
 ## Constraints
 
-- Only write to `output/archaeology.json`. Create `output/` if it doesn't exist. Touch nothing
+- Only write to `output/<target>/archaeology.json`. Create `output/` if it doesn't exist. Touch nothing
   else — you have no `Edit`, and `Bash` is for read-only inspection only, by design.
 - If churn data isn't obtainable, set `churn_commits` to `0` and say so in `deep_dive_notes` —
   never fabricate a number.

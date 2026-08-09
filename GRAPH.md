@@ -3,7 +3,7 @@
 This is the architecture spec for the legacy-refactor-agent pipeline: the phase DAG, each node's
 input/output contract, and the strategy that lets the same six agents work against anything from
 a small fixture to a real, large SaaS monorepo. This document doesn't change between runs — for
-the state of any specific run, see `PROGRESS.md` (human-readable) and `output/progress_state.json`
+the state of any specific run, see `PROGRESS.md` (human-readable) and `output/<target>/progress_state.json`
 (machine-readable).
 
 ## Why a graph, not a linear script
@@ -24,22 +24,22 @@ structure any code traverses.
 ```
 Phase 0  preflight(target)
               │
-Phase 1  archaeologist   → output/archaeology.json
+Phase 1  archaeologist   → output/<target>/archaeology.json
               │
-Phase 2  risk-assessor   → output/risk_assessment.json
+Phase 2  risk-assessor   → output/<target>/risk_assessment.json
               │
 Phase 3  fan-out (parallel)
     ┌─────────────┴─────────────┐
     test-writer         refactor-planner
-    → tests/            → output/refactor_plan.json
+    → tests/            → output/<target>/refactor_plan.json
     └─────────────┬─────────────┘
               │
 Phase 4  HUMAN GATE (no agent)
               │
 Phase 5  stage-executor × N (sequential, one dispatch per stage)
-         → output/stage_N_result.json (+ commit, only after per-stage approval)
+         → output/<target>/stage_N_result.json (+ commit, only after per-stage approval)
               │
-Phase 6  synthesizer     → output/synthesis_report.md
+Phase 6  synthesizer     → output/<target>/synthesis_report.md
 ```
 
 ## Node contracts
@@ -66,19 +66,19 @@ Phase 6  synthesizer     → output/synthesis_report.md
   This is what lets the same agent design work whether the target is a 400-line fixture or a real
   monorepo — tier 1 never blows its context budget because it summarizes, and `output/*.json`
   never contains more raw source than a downstream phase actually needs.
-- **Output**: `output/archaeology.json` — module inventory, entry points, schema summary,
+- **Output**: `output/<target>/archaeology.json` — module inventory, entry points, schema summary,
   cross-module coupling notes, deep-dive findings. Validated against `ArchaeologyReport` in
   `scripts/schemas.py`.
 
 ### Phase 2 — risk-assessor
-- **Input**: `output/archaeology.json` + targeted source reads.
+- **Input**: `output/<target>/archaeology.json` + targeted source reads.
 - **Tools**: Read, Grep, Write, SQLite MCP (read-only).
 - **Strategy**: score each module on four axes — churn (from archaeology's git stats),
   complexity (rough heuristic: branching/nesting density), coupling (cross-module references,
   foreign keys via the MCP), security-surface (injection-prone SQL, plaintext secrets, unvalidated
   input). Produces a ranked priority list, not a flat report — this ranking is what makes the rest
   of the run's ordering defensible.
-- **Output**: `output/risk_assessment.json` — validated against `RiskAssessment`.
+- **Output**: `output/<target>/risk_assessment.json` — validated against `RiskAssessment`.
 
 ### Phase 3 — fan-out: test-writer + refactor-planner (parallel)
 Both read `archaeology.json` + `risk_assessment.json` and nothing else from earlier phases;
@@ -96,7 +96,7 @@ neither reads the other's output — that's what makes running them concurrently
     codebase is never in a half-migrated state with no clean rollback.
   - **contract tests** — before cutover, a stage's acceptance criteria include proving old and
     new paths produce equivalent output, not just "new code passes its own tests."
-  → `output/refactor_plan.json` — `RefactorPlan` with ordered `stages: list[Stage]`, each carrying
+  → `output/<target>/refactor_plan.json` — `RefactorPlan` with ordered `stages: list[Stage]`, each carrying
   module, target files, pattern used, risk level, acceptance criteria.
 
 ### Phase 4 — human gate
@@ -117,7 +117,7 @@ an earlier one's seam existing). Per stage:
    later stage depends on this one).
 4. Only after approval: commit on the refactor branch, run
    `validate_state.py stage-diff-check --stage <n> --target <path>` (confirms the diff touched
-   only `<target>/` and `tests/`), write `output/stage_N_result.json`, update PROGRESS.md's
+   only `<target>/` and `tests/`), write `output/<target>/stage_N_result.json`, update PROGRESS.md's
    sub-entry for that stage.
 
 A stage too large for one dispatch to handle cleanly gets **split in `refactor_plan.json`** rather
@@ -127,7 +127,7 @@ stage-executor workaround.
 ### Phase 6 — synthesizer
 - **Input**: every `output/*.json` produced so far + `git log` on the refactor branch.
 - **Tools**: Read, Bash (`git log` only), Write.
-- **Output**: `output/synthesis_report.md` — a modernization **roadmap**, not a completion claim:
+- **Output**: `output/<target>/synthesis_report.md` — a modernization **roadmap**, not a completion claim:
   what changed, what's proven equivalent via contract tests, and the remaining risk-ranked
   backlog. One run through a large codebase finishes a handful of stages, never the whole app —
   the report has to say so honestly.

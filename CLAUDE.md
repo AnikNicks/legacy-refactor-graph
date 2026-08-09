@@ -4,22 +4,24 @@ A general-purpose pipeline for modernizing legacy codebases and large SaaS appli
 codebase, rank what's actually risky, write characterization tests that pin down current behavior,
 propose an incremental (strangler-fig / branch-by-abstraction) refactor plan, and execute it stage
 by stage with a human approving every single commit. It is not specific to any one target — see
-`legacy-app/`, which is a small fixture standing in for a real codebase, not the point of the tool.
+`output/examples.json` for the current set of example targets, none of which is "the" point of
+the tool; each is a small fixture standing in for a real codebase.
 
 ## Where things live
 
 | Path | What it is |
 |---|---|
 | `GRAPH.md` | The pipeline's architecture — the phase DAG, each node's input/output contract, the scale strategy. Read this to understand *how* the pipeline works. |
-| `PROGRESS.md` | The current run's state, human-readable, compacted to one line per completed phase. Read this to understand *where a run currently stands*. |
-| `output/progress_state.json` | The same state as `PROGRESS.md`, structured, for `viewer/` to read without parsing markdown. |
+| `PROGRESS.md` | The current run's state, human-readable, compacted to one line per completed phase (for the target most recently worked on). Read this to understand *where a run currently stands*. |
+| `output/<target>/progress_state.json` | The same state as `PROGRESS.md`, structured, per target, for `viewer/` to read without parsing markdown. |
+| `output/examples.json` | The manifest of every example target the viewer's dropdown lists — slug, display name, category, description, run depth. Add an entry here when a new example target is added. |
 | `SECURITY.md` | What's actually enforced (by `scripts/validate_state.py`) vs. what's convention-level (stated in agent prompts, not sandboxed). |
 | `.claude/commands/refactor-legacy-app.md` | The orchestrator. Invoke with `/refactor-legacy-app [path]` — `path` defaults to `legacy-app/`. |
 | `.claude/agents/` | The six subagents: `archaeologist`, `risk-assessor`, `test-writer`, `refactor-planner`, `stage-executor`, `synthesizer`. |
 | `scripts/schemas.py`, `scripts/validate_state.py` | The pydantic contracts every phase's output must satisfy, and the CLI (`preflight` / `validate` / `stage-diff-check`) that enforces them between phases. |
-| `output/*.json` | The audit trail — every phase's validated output. Tracked in git, not gitignored. |
-| `legacy-app/` | The fixture target (`auth/`, `notes/`, `billing/`, `shared/` — a small multi-module Flask app with realistic legacy smells). Used to smoke-test the pipeline; not the pipeline's only valid target. |
-| `viewer/` | A read-only TypeScript/React/Vite dashboard over `output/*.json`. Optional — nothing about the pipeline depends on it running. |
+| `output/<target>/*.json` | The audit trail per target — every phase's validated output. Tracked in git, not gitignored. |
+| `legacy-app/`, `ecommerce-app/`, `healthcare-app/`, `fintech-app/` | The example targets — see `output/examples.json` for what each one is and how far its pipeline run went. `legacy-app/` has the only full 0–6 run; the other three have Phases 0–2 (archaeologist + risk-assessor) only. |
+| `viewer/` | A read-only TypeScript/React/Vite dashboard over `output/<target>/*.json`, with a dropdown to switch targets and a source-viewer panel to browse each target's actual code. Optional — nothing about the pipeline depends on it running. |
 
 ## Conventions
 

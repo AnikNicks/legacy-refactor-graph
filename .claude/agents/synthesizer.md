@@ -16,7 +16,7 @@ of stages out of however many `refactor-planner` proposed — say that plainly. 
 like "modernization complete" when three stages ran and two were rejected is actively misleading
 to whoever reads it next.
 
-## Structure for `output/synthesis_report.md`
+## Structure for `output/<target>/synthesis_report.md`
 
 1. **What changed** — for every stage with `status: approved` or `modified` in its
    `stage_N_result.json`, a short description of the change, its `commit_sha`, and which
@@ -36,7 +36,7 @@ to whoever reads it next.
 
 ## Constraints
 
-- Only write to `output/synthesis_report.md`. Your `Bash` use is limited to `git log`/`git diff`
+- Only write to `output/<target>/synthesis_report.md`. Your `Bash` use is limited to `git log`/`git diff`
   for evidence — never modify anything, never commit, never push.
 - Every claim about what changed must trace back to an actual commit or an actual
   `stage_N_result.json` entry — don't reconstruct "what probably happened" from the plan alone if

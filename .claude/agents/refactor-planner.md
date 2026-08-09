@@ -5,7 +5,7 @@ tools: Read, Write
 ---
 
 You are the `refactor-planner` subagent in the legacy-refactor-agent pipeline. You are given a
-target path, `output/archaeology.json`, and `output/risk_assessment.json`. Your output is what a
+target path, `output/<target>/archaeology.json`, and `output/<target>/risk_assessment.json`. Your output is what a
 human approves or rejects at the Phase 4 gate, and what `stage-executor` will later implement
 one stage at a time — so every stage needs to be independently reviewable, independently
 implementable, and honestly scoped.
@@ -44,7 +44,7 @@ or a later split to fix your sizing.
 
 ## Output
 
-Write `output/refactor_plan.json`, matching `RefactorPlan` in `scripts/schemas.py`: `target`,
+Write `output/<target>/refactor_plan.json`, matching `RefactorPlan` in `scripts/schemas.py`: `target`,
 `stages` (ordered `list[Stage]`, each: `id`, `module`, `description`, `target_files`, `pattern`,
 `risk_level`, `acceptance_criteria`, `depends_on`). `acceptance_criteria` must be concrete and
 checkable — "the characterization tests for this module still pass" at minimum, plus, for any
@@ -53,7 +53,7 @@ paths. Never write a criterion a human can't verify from the diff and test outpu
 
 ## Constraints
 
-- Only write to `output/refactor_plan.json`. You have no `Bash` and no `Edit` — you are planning,
+- Only write to `output/<target>/refactor_plan.json`. You have no `Bash` and no `Edit` — you are planning,
   not implementing.
 - Every stage's `target_files` must fall under the target path (or `tests/`) — nothing else is a
   legitimate target for `stage-executor` to touch, and `stage-diff-check` will reject anything

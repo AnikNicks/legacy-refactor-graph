@@ -1,0 +1,40 @@
+{
+  "examples": [
+    {
+      "slug": "legacy-app",
+      "name": "SaaS Starter",
+      "category": "General SaaS",
+      "appPath": "legacy-app",
+      "description": "Auth, notes, and billing modules with dual-source-of-truth caches, an internal coupling violation, and injection-prone SQL. Full 6-phase run: analyzed, planned, refactored across 5 approved stages, and synthesized.",
+      "runDepth": "full",
+      "flagshipRisk": "Cross-module coupling and SQL injection"
+    },
+    {
+      "slug": "ecommerce-app",
+      "name": "Storefront",
+      "category": "E-Commerce",
+      "appPath": "ecommerce-app",
+      "description": "Catalog, inventory, and cart modules with a non-atomic stock decrement duplicated in two places, an N+1 catalog query, and no idempotency on checkout.",
+      "runDepth": "analysis",
+      "flagshipRisk": "Non-atomic inventory decrement (lost-update / overselling)"
+    },
+    {
+      "slug": "healthcare-app",
+      "name": "Patient Records",
+      "category": "Healthcare",
+      "appPath": "healthcare-app",
+      "description": "Patient, appointment, and clinical-notes modules with PII logged in plaintext, no field-level access control, and no audit trail on PHI access.",
+      "runDepth": "analysis",
+      "flagshipRisk": "PII/PHI exposure and missing audit trail"
+    },
+    {
+      "slug": "fintech-app",
+      "name": "Ledger & Transfers",
+      "category": "Fintech",
+      "appPath": "fintech-app",
+      "description": "Accounts, transfers, and ledger modules with a non-atomic balance transfer (a classic double-spend), float-typed currency, and no idempotency key on retries.",
+      "runDepth": "analysis",
+      "flagshipRisk": "Non-atomic money transfer (double-spend)"
+    }
+  ]
+}
