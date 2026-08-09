@@ -536,15 +536,77 @@ code {
   color: var(--text-secondary);
 }
 
-/* ---- Synthesis ---- */
+/* ---- Synthesis (rendered markdown) ---- */
 
-.markdown-raw {
-  white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.84rem;
+.markdown-body {
+  font-size: 0.92rem;
   line-height: 1.6;
   color: var(--text-secondary);
-  margin: 0;
+}
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+.markdown-body h1 {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.005em;
+}
+.markdown-body h2 {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 1.6rem 0 0.6rem;
+}
+.markdown-body h3 {
+  font-size: 0.85rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-primary);
+  font-weight: 700;
+  margin: 1.3rem 0 0.5rem;
+}
+.markdown-body p {
+  margin: 0 0 0.9rem;
+}
+.markdown-body strong {
+  color: var(--text-primary);
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 0.9rem;
+  padding-left: 1.3rem;
+}
+.markdown-body li {
+  margin-bottom: 0.3rem;
+}
+.markdown-body code {
+  font-size: 0.85em;
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--gridline);
+  margin: 1.5rem 0;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.1rem;
+  font-size: 0.85rem;
+}
+.markdown-body th,
+.markdown-body td {
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--gridline);
+  vertical-align: top;
+}
+.markdown-body th {
+  background: var(--page-plane);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 /* ---- Source viewer ---- */
