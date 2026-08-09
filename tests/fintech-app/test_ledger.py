@@ -1,8 +1,3 @@
-import sqlite3
-
-import pytest
-
-
 def _create_account(client, owner, balance_cents):
     return client.post(
         "/accounts", json={"owner": owner, "starting_balance_cents": balance_cents}
@@ -36,10 +31,11 @@ def test_ledger_empty_for_account_with_no_transfers(client):
     assert resp.get_json() == []
 
 
-def test_ledger_with_non_numeric_account_id_breaks_current_implementation(client):
-    # Characterizes the injection-adjacent bug: account_id is spliced
-    # unquoted into the WHERE clause via string formatting, so a
-    # non-numeric value produces invalid SQL instead of a clean 400/404.
-    # Not fixed until stage 4.
-    with pytest.raises(sqlite3.OperationalError):
-        client.get("/ledger/not-a-number")
+def test_ledger_with_non_numeric_account_id_returns_clean_404(client):
+    # Stage 4 fixed this: Flask's <int:account_id> converter now rejects a
+    # non-numeric path segment before the route body (and its query) ever
+    # runs, instead of the old string-formatted WHERE clause producing
+    # invalid SQL. The flip from "raises sqlite3.OperationalError" to "404"
+    # is the proof.
+    resp = client.get("/ledger/not-a-number")
+    assert resp.status_code == 404
