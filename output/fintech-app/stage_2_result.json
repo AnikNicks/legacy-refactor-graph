@@ -1,0 +1,7 @@
+{
+  "stage_id": 2,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "transfer requires idempotency_key; repeat with same key returns original result without a second debit/credit. transactions.idempotency_key is UNIQUE at the schema level. 16/16 tests pass.",
+  "commit_sha": "623f719d47e017543f16d2e8e3badc9b0151127d"
+}

@@ -1,0 +1,7 @@
+{
+  "stage_id": 4,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "ledger's query parameterized; route uses <int:account_id>. Non-numeric account_id now 404s cleanly via Flask's converter instead of crashing. grep confirms no %-formatted SQL remains. 16/16 tests pass.",
+  "commit_sha": "0295b059caac1936753b414a590e533e6239a6b2"
+}

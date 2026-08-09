@@ -1,0 +1,7 @@
+{
+  "stage_id": 1,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "Debit is now a single guarded UPDATE (balance >= amount in the WHERE clause). to_account existence checked before touching balances. New exact-balance test exercises the guard directly. grep confirms one guarded UPDATE statement. 14/14 tests pass.",
+  "commit_sha": "155b33243d8cd27d9e121d5438143ad50a65455e"
+}
