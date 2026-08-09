@@ -1,0 +1,75 @@
+{
+  "target": "legacy-app",
+  "stages": [
+    {
+      "id": 1,
+      "module": "notes",
+      "description": "Parameterize the three string-formatted SQL queries in notes/routes.py (create_note's INSERT, list_notes' SELECT, update_note's UPDATE) using sqlite3 placeholders, matching the pattern delete_note already uses. No external behavior change for valid input — this closes the injection surface and the apostrophe-crash bug in the same fix, since both come from the same string-formatting root cause.",
+      "target_files": ["legacy-app/notes/routes.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "All existing tests/test_notes.py tests still pass.",
+        "test_create_note_with_apostrophe_in_title_breaks_current_implementation's expectation flips from 'raises sqlite3.OperationalError' to 'note is created successfully with the apostrophe stored literally' — update that test as part of this stage and confirm it passes with the new behavior, not just that the old test still passes.",
+        "No route's SQL string contains a %-format or f-string interpolation of request data after this stage."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 2,
+      "module": "auth",
+      "description": "Introduce a small interface auth exposes deliberately (e.g. auth.directory.is_known_user(username) / auth.directory.verify(username, password)) backed by a proper read-through/write-through cache, replacing the current pattern where _user_cache is read and written ad hoc from three different routes with no consistency rule. Old direct dict access and the new interface coexist during this stage; routes within auth itself are migrated to the new interface, but _user_cache remains importable so stage 3 (notes) is not blocked.",
+      "target_files": ["legacy-app/auth/routes.py"],
+      "pattern": "branch-by-abstraction",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "All existing tests/test_auth.py tests still pass unmodified — this stage changes internals, not auth's own external behavior.",
+        "A new contract test proves the new interface and the old _user_cache dict agree on every existing test scenario (register, login cache-hit, login cache-miss, profile lookup) before this stage is considered done.",
+        "The new interface function(s) are the only thing stage 3 needs to import from auth — no further changes to auth.routes should be required to complete stage 3."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 3,
+      "module": "notes",
+      "description": "Replace notes/routes.py's direct `from auth.routes import _user_cache` with a call through the interface auth introduced in stage 2. This is the fix for the coupling finding from Phase 1/2 — notes stops depending on auth's internal data structure and depends on a declared interface instead.",
+      "target_files": ["legacy-app/notes/routes.py"],
+      "pattern": "branch-by-abstraction",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "All existing tests/test_notes.py tests still pass, including test_create_note_for_unknown_user_is_rejected's 403 behavior — the externally observable gating behavior must not change even though the mechanism does.",
+        "legacy-app/notes/routes.py no longer imports anything from auth.routes except the new interface from stage 2.",
+        "A new test confirms create_note behaves identically whether a user is 'known' via a fresh login (cache-warm) or via a cache-cold DB read through the new interface — this is the equivalence proof that the coupling fix didn't narrow who counts as a known user."
+      ],
+      "depends_on": [2]
+    },
+    {
+      "id": 4,
+      "module": "billing",
+      "description": "Fix pay_invoice's silent failure mode: the bare `except:` around the DB write should not allow INVOICE_CACHE to be marked 'paid' when the underlying UPDATE didn't actually succeed. Introduce a narrow, explicit exception type instead of bare except, and only update the cache after a confirmed successful commit. Apply the same fix to create_invoice's payload-parsing bare except (narrow it to KeyError/ValueError/TypeError explicitly, matching what it's documented to swallow).",
+      "target_files": ["legacy-app/billing/routes.py"],
+      "pattern": "branch-by-abstraction",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "All existing tests/test_billing.py tests still pass.",
+        "A new test forces the DB write in pay_invoice to fail (e.g. by paying a nonexistent invoice_id or simulating a locked DB) and asserts INVOICE_CACHE is NOT updated to 'paid' in that case — this is the specific bug this stage fixes, so it needs its own regression test, not just 'existing tests still pass.'",
+        "No bare `except:` remains in legacy-app/billing/routes.py."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 5,
+      "module": "shared",
+      "description": "Move SECRET_KEY out of source (legacy-app/shared/__init__.py) into an environment variable, with a clearly-marked, obviously-fake fallback value used only when the environment variable is unset (so local/dev usage and this repo's own tests don't break), and never the same value used as a real fallback.",
+      "target_files": ["legacy-app/shared/__init__.py"],
+      "pattern": "direct",
+      "risk_level": "low",
+      "acceptance_criteria": [
+        "All existing tests pass unmodified (the fallback value keeps local/test behavior working without any environment variable set).",
+        "No hardcoded value that looks like a real secret remains in legacy-app/shared/__init__.py — grep for the literal string that used to be there and confirm it's gone.",
+        "Setting a SECRET_KEY environment variable before starting the app changes app.config['SECRET_KEY'] accordingly — add one small test proving this."
+      ],
+      "depends_on": []
+    }
+  ]
+}

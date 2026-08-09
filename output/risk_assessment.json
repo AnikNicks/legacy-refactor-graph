@@ -1,0 +1,46 @@
+{
+  "target": "legacy-app",
+  "ranked_modules": [
+    {
+      "module": "notes",
+      "churn_score": 1.0,
+      "complexity_score": 3.0,
+      "coupling_score": 9.0,
+      "security_score": 9.0,
+      "total_score": 22.0,
+      "rationale": "Highest security surface in the target: 3 of 4 routes (create_note, list_notes, update_note) build SQL via Python string formatting against user-supplied username/title/body/note_id, a direct injection path. Highest coupling too — imports auth._user_cache directly (legacy-app/notes/routes.py:8) instead of any interface, plus a real FK on users.username. Complexity is otherwise low (four small route handlers); the risk is entirely in what those handlers do, not how large the module is."
+    },
+    {
+      "module": "auth",
+      "churn_score": 1.0,
+      "complexity_score": 3.0,
+      "coupling_score": 7.0,
+      "security_score": 7.0,
+      "total_score": 18.0,
+      "rationale": "Owns the hardcoded SECRET_KEY's consuming context and the dual-source-of-truth bug: passwords live in both the users table and the unbounded, never-invalidated _user_cache dict, and the two can silently disagree (legacy-app/auth/routes.py _user_cache, register/login). Coupling score reflects that it's the coupling *target* notes reaches into, not just the target module's own imports. Queries themselves are parameterized, which is why security_score sits below notes' despite the secret and the cache bug."
+    },
+    {
+      "module": "billing",
+      "churn_score": 1.0,
+      "complexity_score": 3.5,
+      "coupling_score": 3.0,
+      "security_score": 3.0,
+      "total_score": 10.5,
+      "rationale": "Best security posture in the target: every query is parameterized. Risk here is reliability, not injection: two bare `except:` blocks (create_invoice payload parsing, pay_invoice's DB write) swallow all exceptions silently, and INVOICE_CACHE is mutated to 'paid' even when the underlying DB write in pay_invoice fails, so cache and database can disagree about whether money was actually collected. Lower coupling score than notes/auth since it has no direct cross-module import, only the same users.username FK pattern."
+    },
+    {
+      "module": "shared",
+      "churn_score": 1.0,
+      "complexity_score": 1.0,
+      "coupling_score": 5.0,
+      "security_score": 4.0,
+      "total_score": 11.0,
+      "rationale": "Lowest own-complexity (69 lines, app factory + a connection helper) but flagged with a coupling score higher than its size alone would suggest: every domain module depends on it (create_app wires all three blueprints; get_db is the only path to the database for notes and billing), so a change here has the widest blast radius in the target even though the module itself is simple. security_score reflects that it's where SECRET_KEY is hardcoded, even though the module doesn't otherwise touch user input."
+    }
+  ],
+  "findings": [
+    "Hardcoded SECRET_KEY in legacy-app/shared/__init__.py, identical across every environment by construction — flagged here as a target-wide finding since it affects session/cookie security for every route in every module, not just shared's own code.",
+    "Two independent 'is this data current' bugs exist in the target, both cache-vs-database drift: auth's _user_cache can hold a stale password after an out-of-band DB change, and billing's INVOICE_CACHE can show 'paid' when the DB write that was supposed to cause that actually failed. These are structurally the same bug (an unbounded, never-invalidated in-process cache layered over a database) appearing independently in two modules — worth treating as one systemic finding, not two unrelated ones, when refactor-planner sequences stages.",
+    "No tests exist anywhere in the target, so every score above is based on static reading, not observed behavior under load or concurrency — a risk-assessor caveat, not a module finding."
+  ]
+}

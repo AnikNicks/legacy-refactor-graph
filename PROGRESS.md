@@ -2,8 +2,8 @@
 
 **Pipeline**: legacy-refactor-agent
 **Target**: `legacy-app/`
-**Branch**: none yet — created in Phase 0
-**Status**: not started (scaffold bootstrap complete)
+**Branch**: `refactor/legacy-app`
+**Status**: awaiting human approval on the Phase 4 plan
 
 This file is the human-readable run state. `output/progress_state.json` mirrors it exactly, kept
 in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each phase does and
@@ -11,11 +11,23 @@ in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each 
 
 ## Completed phases
 
-_(none yet — Stage A scaffold bootstrap just finished; no pipeline phase has run)_
+- **Phase 0 (pre-flight)** — created branch `refactor/legacy-app` off `main`; `validate_state.py preflight --target legacy-app` passed.
+- **Phase 1 (archaeologist)** — 4 modules, 12 entry points, 3 schema tables with FKs, key cross-module coupling (`notes` reaches into `auth`'s internals) documented. `output/archaeology.json`, validated against `ArchaeologyReport`.
+- **Phase 2 (risk-assessor)** — ranked `notes` > `auth` > `shared` > `billing`; flagged a systemic cache/DB drift pattern appearing independently in both `auth` and `billing`. `output/risk_assessment.json`, validated against `RiskAssessment`.
+- **Phase 3 (test-writer + refactor-planner)** — 21 characterization tests across `tests/test_{auth,notes,billing}.py`, all passing against the unmodified target. 5-stage refactor plan sequenced notes→auth→notes→billing→shared, validated against `RefactorPlan`.
 
 ## Active phase — details
 
-Phase 0 (pre-flight) has not started.
+**Phase 4 (human gate) — awaiting your approval of the 5-stage plan below before any Phase 5 work starts.**
+
+## Note on subagent dispatch
+
+The `Agent` tool in this session can't discover this project's `.claude/agents/*.md` subagents
+(cwd-discovery issue tied to the session's original working directory, not this repo). Per the
+user's direction, Phases 1–3's work is being done directly rather than via subagent dispatch, but
+still strictly following each phase's own `.claude/agents/*.md` instructions and producing the
+same validated output contracts. `/refactor-legacy-app` itself is unaffected — this only matters
+for how *this run* is being carried out inside the current session.
 
 ## Blockers
 

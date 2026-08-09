@@ -1,0 +1,81 @@
+{
+  "target": "legacy-app",
+  "modules": [
+    {
+      "name": "auth",
+      "path": "legacy-app/auth",
+      "loc": 81,
+      "churn_commits": 1,
+      "description": "Registration, login, profile lookup, and a no-op logout. Owns a redundant in-memory cache (_user_cache) of usernames to plaintext passwords, layered on top of a users table that already persists the same data."
+    },
+    {
+      "name": "notes",
+      "path": "legacy-app/notes",
+      "loc": 70,
+      "churn_commits": 1,
+      "description": "CRUD for user notes against a sqlite notes table. Reaches directly into auth's _user_cache to gate note creation instead of using any interface. Three of its four queries build SQL via string formatting."
+    },
+    {
+      "name": "billing",
+      "path": "legacy-app/billing",
+      "loc": 81,
+      "churn_commits": 1,
+      "description": "Invoice creation, lookup, listing, and payment against a sqlite invoices table. Parameterizes all queries correctly (unlike notes), but keeps an unbounded, never-expired INVOICE_CACHE that can drift from the database, and has two bare except blocks that silently swallow errors."
+    },
+    {
+      "name": "shared",
+      "path": "legacy-app/shared",
+      "loc": 69,
+      "churn_commits": 1,
+      "description": "Not a domain module — infrastructure. Flask app factory (create_app) and the sqlite connection helper (get_db/init_db) every other module depends on. Also where the hardcoded SECRET_KEY lives."
+    }
+  ],
+  "entry_points": [
+    { "module": "auth", "path": "legacy-app/auth/routes.py:12", "kind": "http-route", "description": "POST /register — creates a user row and warms _user_cache." },
+    { "module": "auth", "path": "legacy-app/auth/routes.py:37", "kind": "http-route", "description": "POST /login — checks cache first, falls back to a DB read, warms cache on a DB-verified hit." },
+    { "module": "auth", "path": "legacy-app/auth/routes.py:60", "kind": "http-route", "description": "GET /users/<username> — profile lookup, cache-first, DB fallback." },
+    { "module": "auth", "path": "legacy-app/auth/routes.py:77", "kind": "http-route", "description": "POST /logout — no session state exists anywhere, so this is a no-op kept for an unspecified frontend caller." },
+    { "module": "notes", "path": "legacy-app/notes/routes.py:12", "kind": "http-route", "description": "POST /notes — create, gated on auth's cache, string-formatted INSERT." },
+    { "module": "notes", "path": "legacy-app/notes/routes.py:36", "kind": "http-route", "description": "GET /notes/<username> — list, string-formatted SELECT." },
+    { "module": "notes", "path": "legacy-app/notes/routes.py:47", "kind": "http-route", "description": "PUT /notes/<int:note_id> — update, string-formatted UPDATE." },
+    { "module": "notes", "path": "legacy-app/notes/routes.py:63", "kind": "http-route", "description": "DELETE /notes/<int:note_id> — the one parameterized query in this module." },
+    { "module": "billing", "path": "legacy-app/billing/routes.py:13", "kind": "http-route", "description": "POST /billing/invoices — create, parameterized, bare except on payload parsing." },
+    { "module": "billing", "path": "legacy-app/billing/routes.py:39", "kind": "http-route", "description": "GET /billing/invoices/<int:id> — cache-first read, falls back to DB and repopulates cache." },
+    { "module": "billing", "path": "legacy-app/billing/routes.py:55", "kind": "http-route", "description": "GET /billing/invoices?username= — list, parameterized." },
+    { "module": "billing", "path": "legacy-app/billing/routes.py:66", "kind": "http-route", "description": "POST /billing/invoices/<int:id>/pay — bare except around the DB write; cache is mutated to 'paid' even when that except fires, so cache and DB can disagree." }
+  ],
+  "schema_tables": [
+    { "name": "users", "columns": ["username", "password", "email"], "foreign_keys": [] },
+    { "name": "notes", "columns": ["id", "username", "title", "body", "created_at"], "foreign_keys": ["notes.username -> users.username"] },
+    { "name": "invoices", "columns": ["id", "username", "amount_cents", "status"], "foreign_keys": ["invoices.username -> users.username"] }
+  ],
+  "coupling_notes": [
+    {
+      "from_module": "notes",
+      "to_module": "auth",
+      "description": "notes/routes.py imports _user_cache directly from auth.routes instead of going through any interface. A note can only be created for a user currently warm in that in-process cache, not any user who exists in the users table.",
+      "evidence": "legacy-app/notes/routes.py:8 `from auth.routes import _user_cache`; used as a gate at legacy-app/notes/routes.py:19."
+    },
+    {
+      "from_module": "notes",
+      "to_module": "shared",
+      "description": "Schema-level coupling via a real foreign key, not just an import — notes.username references users.username, so notes cannot be understood or migrated independently of auth's user table.",
+      "evidence": "legacy-app/shared/db.py notes table definition: `username TEXT NOT NULL REFERENCES users(username)`."
+    },
+    {
+      "from_module": "billing",
+      "to_module": "shared",
+      "description": "Same pattern as notes: invoices.username references users.username.",
+      "evidence": "legacy-app/shared/db.py invoices table definition: `username TEXT NOT NULL REFERENCES users(username)`."
+    }
+  ],
+  "deep_dive_notes": [
+    "Churn is uninformative right now: the whole tree was introduced in a single bootstrap commit, so every module shows churn_commits=1. This will only become a meaningful risk signal once real change history accumulates.",
+    "auth stores the same fact (a user's password) in two places that can disagree: the users table and the in-process _user_cache dict. Nothing invalidates the cache when the table changes through another process, and nothing repopulates it on process restart until the next login.",
+    "SECRET_KEY is hardcoded in legacy-app/shared/__init__.py ('dev-secret-do-not-use-in-prod-...') and identical across every environment by construction — flagging the existence and location of this secret, not restating its value here.",
+    "notes/routes.py builds SQL via Python string formatting (%) in 3 of its 4 routes (create, list, update) — classic injection surface. Only delete_note uses a parameterized query.",
+    "billing/routes.py parameterizes every query but has two bare `except:` blocks (create_invoice's payload parsing, pay_invoice's DB write) that swallow all exception types with no logging.",
+    "No tests exist anywhere in the target (tests/ is empty). No input validation on any route. No structured logging anywhere in the target.",
+    "shared/__init__.py is the one place all three domain modules are wired together (create_app registers all three blueprints) — it's small (69 lines) but structurally central; any change to the app factory or DB helper has blast radius across all three modules."
+  ]
+}
