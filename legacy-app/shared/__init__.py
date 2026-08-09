@@ -1,14 +1,19 @@
+import os
+
 from flask import Flask
 
 from shared.db import init_db
 
-# Hardcoded, never rotated, same value in every environment.
-SECRET_KEY = "dev-secret-do-not-use-in-prod-a8f3e9"
+# Obviously-fake fallback, used only when SECRET_KEY isn't set in the
+# environment - keeps local/dev usage and this repo's own tests working
+# without requiring the variable, without being a real secret anyone could
+# mistake for production-worthy.
+_FALLBACK_SECRET_KEY = "insecure-dev-only-fallback-not-a-real-secret"
 
 
 def create_app():
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = SECRET_KEY
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", _FALLBACK_SECRET_KEY)
 
     init_db()
 
