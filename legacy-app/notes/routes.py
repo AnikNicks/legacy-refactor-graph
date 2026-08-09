@@ -1,10 +1,7 @@
 from flask import Blueprint, jsonify, request
 
+from auth import directory
 from shared.db import get_db
-
-# Reaches directly into auth's internals instead of going through any
-# interface — notes has no idea auth even has a database-backed users table.
-from auth.routes import _user_cache
 
 notes_bp = Blueprint("notes", __name__)
 
@@ -16,10 +13,11 @@ def create_note():
     title = data.get("title")
     body = data.get("body", "")
 
-    # Only accepts notes for users already warm in auth's cache, so a
-    # freshly-registered user who hasn't logged in yet in this process gets
-    # rejected even though they exist in the users table.
-    if username not in _user_cache:
+    # Goes through auth's declared interface instead of reaching into its
+    # internal cache dict. is_known_user does a proper cache-then-DB
+    # read-through, so (unlike the old direct _user_cache check) a user who
+    # registered but never logged in is correctly recognized as known.
+    if not directory.is_known_user(username):
         return jsonify({"error": "unknown user"}), 403
 
     db = get_db()

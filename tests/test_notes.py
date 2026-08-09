@@ -11,12 +11,25 @@ def test_create_note_for_known_user(client):
 
 
 def test_create_note_for_unknown_user_is_rejected(client):
-    # Characterizes current behavior, which is arguably a bug: a user who
-    # exists in the database but hasn't logged in yet *in this process* gets
-    # rejected, because notes gates on auth's in-memory cache, not the DB.
+    # "nobody" was never registered at all — doesn't exist in the users
+    # table or any cache. Still correctly rejected after stage 3.
     resp = client.post("/notes", json={"username": "nobody", "title": "x", "body": "y"})
     assert resp.status_code == 403
     assert resp.get_json() == {"error": "unknown user"}
+
+
+def test_create_note_for_registered_but_never_logged_in_user_now_succeeds(client):
+    # Stage 3 fixed the bug archaeology/risk-assessor both flagged: before
+    # this stage, notes only checked auth's in-memory cache, so a user who
+    # registered but never logged in (cache never warmed) was rejected even
+    # though they exist in the users table. Now that notes goes through
+    # auth.directory (a proper cache-then-DB read-through, same as auth's
+    # own routes use), this works — this is the one deliberate behavior
+    # change in this stage, not just an internal refactor.
+    client.post("/register", json={"username": "ivan", "password": "pw9", "email": "i@x.com"})
+    # Deliberately not calling /login — ivan's cache entry stays cold.
+    resp = client.post("/notes", json={"username": "ivan", "title": "hi", "body": "x"})
+    assert resp.status_code == 201
 
 
 def test_list_notes_returns_created_note(client):
