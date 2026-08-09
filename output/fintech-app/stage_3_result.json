@@ -1,0 +1,7 @@
+{
+  "stage_id": 3,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "accounts.balance and transactions.amount are INTEGER (confirmed via grep), not REAL. API renamed to starting_balance_cents/amount_cents/balance_cents throughout, a deliberate breaking change. Float-drift test flipped to exact-equality (100 cents, not ~1.0). 16/16 tests pass.",
+  "commit_sha": "0cc99fe53c56e8152a936c67e873172a2173eadf"
+}

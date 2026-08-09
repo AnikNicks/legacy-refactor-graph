@@ -17,7 +17,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             owner TEXT NOT NULL,
-            balance REAL NOT NULL DEFAULT 0
+            balance INTEGER NOT NULL DEFAULT 0
         )
         """
     )
@@ -27,9 +27,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             from_account INTEGER NOT NULL REFERENCES accounts(id),
             to_account INTEGER NOT NULL REFERENCES accounts(id),
-            amount REAL NOT NULL,
+            amount INTEGER NOT NULL,
             status TEXT NOT NULL DEFAULT 'completed',
-            created_at TEXT
+            created_at TEXT,
+            idempotency_key TEXT UNIQUE
         )
         """
     )
