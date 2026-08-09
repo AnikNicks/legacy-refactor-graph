@@ -14,8 +14,8 @@
       "name": "Storefront",
       "category": "E-Commerce",
       "appPath": "ecommerce-app",
-      "description": "Catalog, inventory, and cart modules with a non-atomic stock decrement duplicated in two places, an N+1 catalog query, and no idempotency on checkout.",
-      "runDepth": "analysis",
+      "description": "Catalog, inventory, and cart modules with a non-atomic stock decrement duplicated in two places, an N+1 catalog query, and no idempotency on checkout. Full 6-phase run: analyzed, planned, refactored across 4 approved stages, and synthesized.",
+      "runDepth": "full",
       "flagshipRisk": "Non-atomic inventory decrement (lost-update / overselling)"
     },
     {
@@ -23,8 +23,8 @@
       "name": "Patient Records",
       "category": "Healthcare",
       "appPath": "healthcare-app",
-      "description": "Patient, appointment, and clinical-notes modules with PII logged in plaintext, no field-level access control, and no audit trail on PHI access.",
-      "runDepth": "analysis",
+      "description": "Patient, appointment, and clinical-notes modules with PII logged in plaintext, no field-level access control, and no audit trail on PHI access. Full 6-phase run: analyzed, planned, refactored across 5 approved stages, and synthesized.",
+      "runDepth": "full",
       "flagshipRisk": "PII/PHI exposure and missing audit trail"
     },
     {
@@ -32,8 +32,8 @@
       "name": "Ledger & Transfers",
       "category": "Fintech",
       "appPath": "fintech-app",
-      "description": "Accounts, transfers, and ledger modules with a non-atomic balance transfer (a classic double-spend), float-typed currency, and no idempotency key on retries.",
-      "runDepth": "analysis",
+      "description": "Accounts, transfers, and ledger modules with a non-atomic balance transfer (a classic double-spend), float-typed currency, and no idempotency key on retries. Full 6-phase run: analyzed, planned, refactored across 4 approved stages, and synthesized.",
+      "runDepth": "full",
       "flagshipRisk": "Non-atomic money transfer (double-spend)"
     }
   ]
