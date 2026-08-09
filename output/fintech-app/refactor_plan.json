@@ -1,0 +1,61 @@
+{
+  "target": "fintech-app",
+  "stages": [
+    {
+      "id": 1,
+      "module": "transactions",
+      "description": "Make transfer atomic: replace the read-check-write sequence with a single guarded UPDATE (UPDATE accounts SET balance = balance - ? WHERE id = ? AND balance >= ?, checked via rowcount) for the debit, followed by the credit, both inside one sqlite transaction (BEGIN IMMEDIATE) rather than four independent statements. This is the fix for the flagship double-spend finding.",
+      "target_files": ["fintech-app/transactions/routes.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "test_transfer_moves_balance and test_transfer_insufficient_funds_rejected still pass unmodified.",
+        "New test: a transfer for an amount exactly equal to the current balance succeeds and drops it to exactly 0; a second transfer for any positive amount from that now-empty account is rejected - this exercises the atomic guarded UPDATE path (rowcount-based rejection) rather than the old separate read-then-check.",
+        "The debit is a single UPDATE statement with the balance>=amount guard in its WHERE clause - no separate SELECT-then-compare-then-UPDATE remains for the debit side."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 2,
+      "module": "transactions",
+      "description": "Add idempotency protection to transfer: require an idempotency_key field, store it against the created transaction row, and return the original transaction's result (no new debit/credit) if the same key is submitted again.",
+      "target_files": ["fintech-app/transactions/routes.py", "fintech-app/shared/db.py"],
+      "pattern": "direct",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "test_transfer_has_no_idempotency_protection's expectation flips: submitting the same idempotency_key twice moves the money only once - update and rename the test as part of this stage.",
+        "A transfer request without an idempotency_key is rejected with 400 rather than silently proceeding unprotected.",
+        "All other existing transaction tests still pass with an idempotency_key added to their request payloads."
+      ],
+      "depends_on": [1]
+    },
+    {
+      "id": 3,
+      "module": "shared",
+      "description": "Migrate currency representation from float/REAL to integer cents across accounts.balance and transactions.amount - a schema-level fix, so it necessarily touches accounts and transactions together with shared/db.py rather than one module alone. POST /accounts now expects starting_balance_cents (an integer); transfer now expects amount_cents. This is a deliberate, breaking API shape change, not a pure internal refactor.",
+      "target_files": ["fintech-app/shared/db.py", "fintech-app/accounts/routes.py", "fintech-app/transactions/routes.py", "fintech-app/ledger/routes.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "All existing tests are updated to use *_cents integer fields instead of float dollar amounts, and pass.",
+        "test_repeated_small_transfers_accumulate_float_drift's expectation flips: ten transfers of 10 cents now sum to exactly 100 cents, not an approximately-1.0 float - rename it to assert exact equality, proving the drift is gone, not just smaller.",
+        "accounts.balance and transactions.amount are both INTEGER columns in shared/db.py, not REAL."
+      ],
+      "depends_on": [1]
+    },
+    {
+      "id": 4,
+      "module": "ledger",
+      "description": "Parameterize account_ledger's SQL query and change the route to use the <int:account_id> converter instead of a bare string, closing the injection-adjacent crash on non-numeric input.",
+      "target_files": ["fintech-app/ledger/routes.py"],
+      "pattern": "direct",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "test_ledger_lists_transfers_in_and_out and test_ledger_empty_for_account_with_no_transfers still pass unmodified.",
+        "test_ledger_with_non_numeric_account_id_breaks_current_implementation's expectation flips from pytest.raises(sqlite3.OperationalError) to a clean 404 (Flask's int converter rejects the URL before the route body runs) - update and rename the test as part of this stage.",
+        "grep confirms account_ledger's query uses a ? placeholder, not % string formatting."
+      ],
+      "depends_on": []
+    }
+  ]
+}

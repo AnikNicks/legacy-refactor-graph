@@ -34,18 +34,22 @@ something):
 - Cross-module interactions `archaeology.json` flagged in `coupling_notes` deserve their own test
   — that coupling is exactly what a strangler-fig/branch-by-abstraction stage risks breaking.
 
-Write tests under `tests/`, organized by module (e.g. `tests/test_auth.py`,
-`tests/test_notes.py`). Use `Bash` to run `pytest` and confirm every test you write actually
-passes against the current, unmodified target before you finish — a characterization test that
-doesn't pass yet is worse than no test, because it will look like Phase 5 broke something it
-didn't.
+Write tests under `tests/<target>/`, organized by module (e.g. `tests/legacy-app/test_auth.py`,
+`tests/legacy-app/test_notes.py`), with your own `tests/<target>/conftest.py`. Every target's
+own subdirectory, never the shared `tests/` root — multiple example targets can have modules with
+the same name (e.g. `shared`), and running two targets' tests in one pytest process would have the
+second target's tests accidentally import the first target's already-cached module from
+`sys.modules`. Use `Bash` to run `pytest tests/<target>/` (scoped to your own directory, never the
+bare `tests/`) and confirm every test you write actually passes against the current, unmodified
+target before you finish — a characterization test that doesn't pass yet is worse than no test,
+because it will look like Phase 5 broke something it didn't.
 
 ## Constraints
 
-- Only write under `tests/`. You have no `Edit` and must not modify anything under the target
-  path — you are observing behavior, not changing it.
+- Only write under `tests/<target>/`. You have no `Edit` and must not modify anything under the
+  target path — you are observing behavior, not changing it.
 - If a test needs a real datastore, set it up and tear it down within the test itself (e.g. a
-  temporary sqlite file) rather than depending on `legacy-app/shared/data.db`'s persistent state —
-  tests must be runnable repeatedly and independently of what earlier pipeline phases did.
-- Do not report success to the orchestrator until `pytest` has actually run clean end to end; a
-  test file that merely exists is not the deliverable.
+  temporary sqlite file) rather than depending on the target's persistent data file — tests must
+  be runnable repeatedly and independently of what earlier pipeline phases did.
+- Do not report success to the orchestrator until `pytest tests/<target>/` has actually run clean
+  end to end; a test file that merely exists is not the deliverable.

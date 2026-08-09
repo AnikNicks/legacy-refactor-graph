@@ -1,0 +1,60 @@
+{
+  "target": "ecommerce-app",
+  "stages": [
+    {
+      "id": 1,
+      "module": "inventory",
+      "description": "Make adjust_stock atomic and guarded: replace the read-then-write pair with a single UPDATE inventory SET stock_qty = stock_qty + ? WHERE product_id = ? AND stock_qty + ? >= 0, checking rowcount to detect both 'unknown product' and 'would go negative'. This is the interface stage 2 will have cart call instead of duplicating.",
+      "target_files": ["ecommerce-app/inventory/routes.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "test_get_stock, test_adjust_stock_increases, test_adjust_stock_decreases, test_adjust_stock_unknown_product all still pass.",
+        "test_adjust_stock_allows_negative_result's expectation flips from 'accepts and returns -5' to 'rejected with 400 and stock unchanged at 5' - update that test as part of this stage and confirm it passes with the new behavior, not just that old tests still pass.",
+        "The UPDATE statement is the only place stock_qty is written in this file - no separate SELECT-then-UPDATE remains."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 2,
+      "module": "cart",
+      "description": "Replace checkout's duplicated read-modify-write stock decrement with a call to inventory's now-atomic, now-guarded decrement from stage 1, instead of reimplementing it. This is the fix for the cart/inventory duplication finding from Phase 1/2.",
+      "target_files": ["ecommerce-app/cart/routes.py"],
+      "pattern": "branch-by-abstraction",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "test_checkout_creates_order_with_tax_applied and test_checkout_decrements_stock still pass unmodified.",
+        "New test: checking out more units than are in stock is now rejected (400, no order created, no partial decrement) - this is a deliberate behavior change, a direct consequence of routing through stage 1's guarded decrement, and needs its own explicit test rather than being folded silently into 'existing tests pass.'",
+        "cart/routes.py no longer contains its own SELECT/UPDATE against the inventory table - it calls into inventory's interface instead."
+      ],
+      "depends_on": [1]
+    },
+    {
+      "id": 3,
+      "module": "cart",
+      "description": "Add idempotency protection to checkout: require an idempotency_key field in the request body, store it against the created order, and return the original order (no new order, no new decrement) if the same key is submitted again.",
+      "target_files": ["ecommerce-app/cart/routes.py", "ecommerce-app/shared/db.py"],
+      "pattern": "direct",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "test_checkout_has_no_idempotency_protection's expectation flips: submitting the same idempotency_key twice returns the same order_id both times and stock is decremented only once - update and rename that test as part of this stage.",
+        "A request without an idempotency_key is rejected with 400 rather than silently proceeding unprotected.",
+        "All other existing cart tests still pass with an idempotency_key added to their request payloads."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 4,
+      "module": "catalog",
+      "description": "Replace list_products' N+1 query pattern (one query per product for stock) with a single query joining products and inventory.",
+      "target_files": ["ecommerce-app/catalog/routes.py"],
+      "pattern": "direct",
+      "risk_level": "low",
+      "acceptance_criteria": [
+        "test_list_products_includes_stock and test_create_product_seeds_inventory still pass, same response shape.",
+        "grep confirms list_products contains exactly one db.execute call, not one plus a per-row loop."
+      ],
+      "depends_on": []
+    }
+  ]
+}

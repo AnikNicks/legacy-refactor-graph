@@ -1,0 +1,75 @@
+{
+  "target": "healthcare-app",
+  "stages": [
+    {
+      "id": 1,
+      "module": "records",
+      "description": "Parameterize both string-formatted SQL statements in records/routes.py: create_note's INSERT and search_notes' LIKE query, matching the pattern used correctly elsewhere in the codebase.",
+      "target_files": ["healthcare-app/records/routes.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "test_add_note, test_search_finds_note_by_substring, test_search_returns_notes_for_any_patient_no_access_control all still pass.",
+        "test_add_note_with_apostrophe_breaks_current_implementation and test_search_with_apostrophe_breaks_current_implementation both flip from pytest.raises(sqlite3.OperationalError) to a normal successful call that stores/finds the apostrophe literally - update both tests as part of this stage.",
+        "No route in records/routes.py builds a SQL string via % formatting or f-strings against request data."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 2,
+      "module": "records",
+      "description": "Add an audit trail: every add_note and search_notes call writes a row to a new audit_log table (who/what/when - requester identity if the caller supplies one, action type, patient_id touched, timestamp), addressing the 'no audit trail despite PHI access' finding. Does not add access control itself (see backlog) - only makes access observable after the fact.",
+      "target_files": ["healthcare-app/records/routes.py", "healthcare-app/shared/db.py"],
+      "pattern": "direct",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "All existing records tests still pass.",
+        "New test: after calling add_note and search_notes, the audit_log table has one row per call with the correct action type and patient_id/query recorded.",
+        "Audit log writes never block or fail the underlying operation - a logging failure must not turn a successful note-add into an error response."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 3,
+      "module": "patients",
+      "description": "Stop returning ssn/dob by default from GET /patients/<id> and GET /patients. Default response includes only id/name/phone; ssn and dob are only included when the caller passes ?include_sensitive=true. This does not add real authorization (there's no auth model to hook into yet - see backlog) but removes PII from the default, most-likely-to-be-called path.",
+      "target_files": ["healthcare-app/patients/routes.py"],
+      "pattern": "branch-by-abstraction",
+      "risk_level": "high",
+      "acceptance_criteria": [
+        "test_register_creates_patient and test_get_patient_unknown still pass unmodified.",
+        "test_get_patient_returns_full_record_including_ssn is renamed/split: a new default-request assertion that ssn/dob are ABSENT, plus a new test that ?include_sensitive=true still returns them - this is a deliberate, flagged behavior change to the default response shape, not a pure refactor.",
+        "test_list_patients_returns_everyone_no_filtering still passes on count, but its per-patient assertions must not check for ssn/dob in the default response."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 4,
+      "module": "patients",
+      "description": "Remove the plaintext PII from register_patient's debug print() - log only that a registration occurred and the resulting patient id, never the payload contents.",
+      "target_files": ["healthcare-app/patients/routes.py"],
+      "pattern": "direct",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "All existing patients tests still pass.",
+        "grep confirms no print() or log call in patients/routes.py includes the raw request payload, ssn, or dob.",
+        "A new test captures stdout/log output during register_patient and asserts the SSN value used in the test does not appear in it."
+      ],
+      "depends_on": []
+    },
+    {
+      "id": 5,
+      "module": "appointments",
+      "description": "Reject scheduling an appointment when the same provider already has one at the same scheduled_at, instead of silently double-booking.",
+      "target_files": ["healthcare-app/appointments/routes.py"],
+      "pattern": "direct",
+      "risk_level": "medium",
+      "acceptance_criteria": [
+        "test_schedule_appointment and test_list_appointments_for_patient still pass unmodified.",
+        "test_double_booking_same_provider_same_slot_is_not_rejected's expectation flips: the second request for the same provider/slot now returns 409 (or 400) instead of 201 - update and rename the test as part of this stage.",
+        "Scheduling the same provider at a different scheduled_at, or a different provider at the same scheduled_at, still succeeds - only the exact (provider, scheduled_at) collision is rejected."
+      ],
+      "depends_on": []
+    }
+  ]
+}
