@@ -15,7 +15,7 @@
       "summary": "All 5 stages approved and committed; 20/20 tests passing.",
       "timestamp": "2026-08-09T04:00:00Z",
       "stages": [
-        { "id": 1, "module": "records", "status": "approved", "summary": "SQL parameterized; 16/16 tests pass; commit 2c1afe3." },
+        { "id": 1, "module": "records", "status": "approved", "summary": "SQL parameterized; 13/13 tests pass; commit 2c1afe3." },
         { "id": 2, "module": "records", "status": "approved", "summary": "Audit trail added, failure-injection tested; 16/16 tests pass; commit dfc5e6c." },
         { "id": 3, "module": "patients", "status": "approved", "summary": "SSN/DOB hidden by default; 17/17 tests pass; commit 18a81e6." },
         { "id": 4, "module": "patients", "status": "approved", "summary": "PII removed from logs; 18/18 tests pass; commit 5ff420a." },
