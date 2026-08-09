@@ -3,7 +3,7 @@
 **Pipeline**: legacy-refactor-agent
 **Target**: `legacy-app/`
 **Branch**: `refactor/legacy-app`
-**Status**: in progress — Phase 6 (synthesis) next
+**Status**: complete
 
 This file is the human-readable run state. `output/progress_state.json` mirrors it exactly, kept
 in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each phase does and
@@ -18,10 +18,14 @@ in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each 
 - **Phase 4 (human gate)** — 5-stage plan approved as presented, no changes requested.
 
 - **Phase 5 (stage execution)** — all 5 stages approved and committed, 30/30 tests passing at the end. Stage 1 `8620dc6` (notes SQL parameterization), stage 2 `692e074` (auth.directory interface), stage 3 `efbd1db` (notes migrated onto auth.directory — the one deliberate behavior change: registered-but-never-logged-in users can now create notes), stage 4 `34af72e` (billing cache/DB drift on payment failure fixed), stage 5 `1b5f347` (SECRET_KEY moved to env var). No stage was rejected or needed a modification round.
+- **Phase 6 (synthesis)** — roadmap written to `output/synthesis_report.md`. Highest remaining backlog item: `shared`'s structural centrality, deliberately left unstaged this run (flagged risk, no single actionable bug attached).
 
 ## Active phase — details
 
-Phase 6 (synthesizer) not yet dispatched.
+None — run complete. `refactor/legacy-app` has 5 stage commits plus tracking commits ahead of
+`main`; `main` itself was never touched after the bootstrap commit. Next step, if any, is a fresh
+run informed by `synthesis_report.md`'s backlog, or opening a PR from `refactor/legacy-app` if
+these changes should land.
 
 ## Note on subagent dispatch
 

@@ -1,7 +1,7 @@
 {
   "target": "legacy-app",
   "branch": "refactor/legacy-app",
-  "status": "in_progress",
+  "status": "complete",
   "phases": [
     { "phase": "0", "name": "preflight", "status": "complete", "summary": "Branch refactor/legacy-app created off main; preflight passed.", "timestamp": "2026-08-09T00:00:00Z" },
     { "phase": "1", "name": "archaeologist", "status": "complete", "summary": "4 modules, 12 entry points, 3 schema tables with FKs, notes->auth coupling documented.", "timestamp": "2026-08-09T00:05:00Z" },
@@ -22,7 +22,7 @@
         { "id": 5, "module": "shared", "status": "approved", "summary": "SECRET_KEY moved to env var; 30/30 tests pass; commit 1b5f347." }
       ]
     },
-    { "phase": "6", "name": "synthesis", "status": "not_started", "summary": "", "timestamp": null }
+    { "phase": "6", "name": "synthesis", "status": "complete", "summary": "Roadmap written. Top backlog item: shared's structural centrality, deliberately unstaged this run.", "timestamp": "2026-08-09T00:50:00Z" }
   ],
   "blockers": []
 }
