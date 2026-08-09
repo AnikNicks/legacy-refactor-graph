@@ -3,7 +3,7 @@
 **Pipeline**: legacy-refactor-agent
 **Target**: `legacy-app/`
 **Branch**: `refactor/legacy-app`
-**Status**: in progress — Phase 5, stage 2 next
+**Status**: in progress — Phase 5, stage 3 next
 
 This file is the human-readable run state. `output/progress_state.json` mirrors it exactly, kept
 in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each phase does and
@@ -21,8 +21,8 @@ in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each 
 
 **Phase 5 — stage execution.**
 - Stage 1 (`notes` SQL parameterization) — **approved, committed** `8620dc6`. 21/21 tests pass. `output/stage_1_result.json`.
-- Stage 2 (`auth` interface) — not yet started.
-- Stage 3 (`notes` uses auth interface, depends on stage 2) — blocked on stage 2.
+- Stage 2 (`auth` interface) — **approved, committed** `692e074`. 26/26 tests pass (5 new contract tests). `output/stage_2_result.json`.
+- Stage 3 (`notes` uses auth interface, depends on stage 2) — unblocked, not yet started.
 - Stage 4 (`billing` bare-except fix) — not yet started.
 - Stage 5 (`SECRET_KEY` to env var) — not yet started.
 

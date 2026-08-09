@@ -1,0 +1,7 @@
+{
+  "stage_id": 2,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "Introduced auth.directory (is_known_user/verify/remember) and migrated auth.routes' internal logic onto it, keeping _user_cache alive and synchronized for notes' existing import. 5 new contract tests prove the two caches agree across register/login-hit/login-cold/profile/unknown-user scenarios. Approved with one flagged judgment call (profile() backfills _user_cache from directory on a cache-hit lookup) accepted as-is.",
+  "commit_sha": "692e0740a6f0e892b976d2ad3f574f9cb70abee0"
+}

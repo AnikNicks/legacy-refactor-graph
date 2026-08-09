@@ -12,12 +12,12 @@
       "phase": "5",
       "name": "stage_execution",
       "status": "in_progress",
-      "summary": "Stage 1 of 5 approved and committed.",
-      "timestamp": "2026-08-09T00:25:00Z",
+      "summary": "Stage 2 of 5 approved and committed.",
+      "timestamp": "2026-08-09T00:30:00Z",
       "stages": [
         { "id": 1, "module": "notes", "status": "approved", "summary": "SQL parameterized; 21/21 tests pass; commit 8620dc6." },
-        { "id": 2, "module": "auth", "status": "pending", "summary": "" },
-        { "id": 3, "module": "notes", "status": "pending", "summary": "Depends on stage 2." },
+        { "id": 2, "module": "auth", "status": "approved", "summary": "directory interface introduced; 26/26 tests pass; commit 692e074." },
+        { "id": 3, "module": "notes", "status": "pending", "summary": "Unblocked, not yet started." },
         { "id": 4, "module": "billing", "status": "pending", "summary": "" },
         { "id": 5, "module": "shared", "status": "pending", "summary": "" }
       ]
