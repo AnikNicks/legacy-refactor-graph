@@ -1,0 +1,7 @@
+{
+  "stage_id": 3,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "get_patient/list_patients exclude ssn/dob by default; ?include_sensitive=true still returns them. Old all-fields test split into two: default-excludes and explicit-includes. 17/17 tests pass.",
+  "commit_sha": "18a81e69f0218e4ecfaf6b78a59682617f3c9836"
+}
