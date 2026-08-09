@@ -1,10 +1,5 @@
 import type { RefactorPlan, StageState } from "../types";
-
-const RISK_COLOR: Record<string, string> = {
-  low: "var(--green)",
-  medium: "var(--amber)",
-  high: "var(--red)",
-};
+import { RiskBadge, StatusBadge } from "./StatusBadge";
 
 export function RefactorPlanPanel({
   plan,
@@ -17,7 +12,7 @@ export function RefactorPlanPanel({
     return (
       <div className="panel">
         <h2>Refactor plan</h2>
-        <p className="empty">No output/refactor_plan.json yet — Phase 3 hasn't run.</p>
+        <p className="empty">No refactor_plan.json yet — Phase 3 hasn't run.</p>
       </div>
     );
   }
@@ -26,20 +21,20 @@ export function RefactorPlanPanel({
 
   return (
     <div className="panel">
-      <h2>Refactor plan — {plan.stages.length} stages</h2>
+      <h2>
+        Refactor plan <span className="panel-subtitle">{plan.stages.length} stages</span>
+      </h2>
       {plan.stages.map((s) => {
         const state = stateFor(s.id);
         return (
-          <div key={s.id} className="stage-card" style={{ borderLeftColor: RISK_COLOR[s.risk_level] }}>
+          <div key={s.id} className="stage-card">
             <div className="stage-card-header">
               <strong>
-                Stage {s.id}: {s.module}
+                Stage {s.id} · {s.module}
               </strong>
               <span className="tag pattern-tag">{s.pattern}</span>
-              <span className="tag" style={{ color: RISK_COLOR[s.risk_level] }}>
-                {s.risk_level} risk
-              </span>
-              {state && <span className="tag status-tag">{state.status}</span>}
+              <RiskBadge level={s.risk_level} />
+              {state && <StatusBadge status={state.status} />}
               {s.depends_on.length > 0 && (
                 <span className="tag depends-tag">depends on {s.depends_on.join(", ")}</span>
               )}

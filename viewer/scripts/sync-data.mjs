@@ -1,7 +1,13 @@
-// Snapshot output/*.json + output/*.md into public/data/ for a static
-// `npm run build`. Not used by `npm run dev` — the dev server reads output/
-// live (see vite.config.ts's liveOutputData plugin) so it never goes stale.
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+// Snapshot output/**/*.json + output/**/*.md into public/data/ (mirroring
+// the output/<target>/ structure) for a static `npm run build`. Not used by
+// `npm run dev` — the dev server reads output/ live (see vite.config.ts's
+// liveOutputData plugin) so it never goes stale.
+//
+// Note: the source-viewer panel (/source-list, /source-file) is served by a
+// dev-only Vite middleware with no static equivalent - it won't work against
+// a `npm run build` + `vite preview` output. This app's supported path is
+// `npm run dev`; the static build only gets the data panels.
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,10 +22,20 @@ if (!existsSync(outputDir)) {
   process.exit(0);
 }
 
-const files = readdirSync(outputDir).filter(
-  (f) => f.endsWith(".json") || f.endsWith(".md"),
-);
-for (const f of files) {
-  copyFileSync(join(outputDir, f), join(targetDir, f));
+function copyRecursive(srcDir, destDir) {
+  let count = 0;
+  mkdirSync(destDir, { recursive: true });
+  for (const entry of readdirSync(srcDir)) {
+    const srcPath = join(srcDir, entry);
+    if (statSync(srcPath).isDirectory()) {
+      count += copyRecursive(srcPath, join(destDir, entry));
+    } else if (entry.endsWith(".json") || entry.endsWith(".md")) {
+      copyFileSync(srcPath, join(destDir, entry));
+      count += 1;
+    }
+  }
+  return count;
 }
-console.log(`sync-data: copied ${files.length} file(s) from output/ to public/data/`);
+
+const count = copyRecursive(outputDir, targetDir);
+console.log(`sync-data: copied ${count} file(s) from output/ to public/data/`);

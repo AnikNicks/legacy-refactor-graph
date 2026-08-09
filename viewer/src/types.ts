@@ -2,6 +2,20 @@
 // orchestrator writes in .claude/commands/refactor-legacy-app.md. Keep these
 // in sync by hand — there's no codegen step tying the two together.
 
+export interface ExampleManifestEntry {
+  slug: string;
+  name: string;
+  category: string;
+  appPath: string;
+  description: string;
+  runDepth: "full" | "analysis";
+  flagshipRisk: string;
+}
+
+export interface ExamplesManifest {
+  examples: ExampleManifestEntry[];
+}
+
 export interface StageState {
   id: number;
   module: string;

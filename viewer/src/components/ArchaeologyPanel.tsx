@@ -5,59 +5,74 @@ export function ArchaeologyPanel({ data }: { data: ArchaeologyReport | null }) {
     return (
       <div className="panel">
         <h2>Archaeology</h2>
-        <p className="empty">No output/archaeology.json yet — Phase 1 hasn't run.</p>
+        <p className="empty">No archaeology.json yet — Phase 1 hasn't run.</p>
       </div>
     );
+  }
+
+  const entryPointsByModule = new Map<string, typeof data.entry_points>();
+  for (const ep of data.entry_points) {
+    const list = entryPointsByModule.get(ep.module) ?? [];
+    list.push(ep);
+    entryPointsByModule.set(ep.module, list);
   }
 
   return (
     <div className="panel">
       <h2>Archaeology</h2>
+
       <h3>Modules</h3>
-      <table>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Module</th>
-            <th>Path</th>
-            <th>LOC</th>
-            <th>Churn</th>
-            <th>Description</th>
+            <th className="num">LOC</th>
+            <th className="num">Churn</th>
+            <th>What it does</th>
           </tr>
         </thead>
         <tbody>
           {data.modules.map((m) => (
             <tr key={m.name}>
-              <td>{m.name}</td>
               <td>
-                <code>{m.path}</code>
+                <code>{m.name}</code>
               </td>
-              <td>{m.loc}</td>
-              <td>{m.churn_commits}</td>
-              <td>{m.description}</td>
+              <td className="num">{m.loc}</td>
+              <td className="num">{m.churn_commits}</td>
+              <td className="description-cell">{m.description}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
       <h3>Entry points</h3>
-      <ul>
-        {data.entry_points.map((e, i) => (
-          <li key={i}>
-            <code>{e.path}</code> ({e.kind}) — {e.description}
-          </li>
-        ))}
-      </ul>
+      <div className="entry-point-groups">
+        {data.modules.map((m) => {
+          const eps = entryPointsByModule.get(m.name);
+          if (!eps || eps.length === 0) return null;
+          return (
+            <div key={m.name} className="entry-point-group">
+              <div className="entry-point-group-title">{m.name}</div>
+              <ul>
+                {eps.map((e, i) => (
+                  <li key={i}>{e.description}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
 
       {data.coupling_notes.length > 0 && (
         <>
           <h3>Cross-module coupling</h3>
-          <ul>
+          <ul className="coupling-list">
             {data.coupling_notes.map((c, i) => (
               <li key={i}>
-                <strong>
+                <span className="coupling-edge">
                   {c.from_module} → {c.to_module}
-                </strong>
-                : {c.description}
+                </span>
+                {c.description}
               </li>
             ))}
           </ul>
