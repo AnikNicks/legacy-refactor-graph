@@ -8,27 +8,19 @@ catalog_bp = Blueprint("catalog", __name__)
 @catalog_bp.route("/products", methods=["GET"])
 def list_products():
     db = get_db()
-    products = db.execute("SELECT id, name, price_cents, category FROM products").fetchall()
-
-    # N+1: one query to list products, then one more query PER product to get
-    # its stock instead of a single join. Fine at demo scale, falls over as
-    # the catalog grows - a classic "worked in the demo" performance smell.
-    result = []
-    for p in products:
-        stock_row = db.execute(
-            "SELECT stock_qty FROM inventory WHERE product_id = ?", (p["id"],)
-        ).fetchone()
-        result.append(
-            {
-                "id": p["id"],
-                "name": p["name"],
-                "price_cents": p["price_cents"],
-                "category": p["category"],
-                "stock_qty": stock_row["stock_qty"] if stock_row else 0,
-            }
-        )
+    # Single join instead of one query per product for stock - replaces the
+    # N+1 pattern that worked fine at demo scale but falls over as the
+    # catalog grows. LEFT JOIN keeps a product with no inventory row visible
+    # (stock_qty comes back 0 via COALESCE instead of dropping the product).
+    rows = db.execute(
+        """
+        SELECT p.id, p.name, p.price_cents, p.category, COALESCE(i.stock_qty, 0) AS stock_qty
+        FROM products p
+        LEFT JOIN inventory i ON i.product_id = p.id
+        """
+    ).fetchall()
     db.close()
-    return jsonify(result)
+    return jsonify([dict(r) for r in rows])
 
 
 @catalog_bp.route("/products/<int:product_id>", methods=["GET"])
