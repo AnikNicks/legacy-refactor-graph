@@ -21,6 +21,10 @@ def client(tmp_path, monkeypatch):
 
     auth_routes._user_cache.clear()
 
+    from auth import directory as auth_directory
+
+    auth_directory._directory_cache.clear()
+
     import billing.routes as billing_routes
 
     billing_routes.INVOICE_CACHE.clear()

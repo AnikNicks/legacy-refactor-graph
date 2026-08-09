@@ -1,11 +1,14 @@
 from flask import Blueprint, jsonify, request
 
+from auth import directory
 from shared.db import get_db
 
 auth_bp = Blueprint("auth", __name__)
 
-# Added later to "speed up" login checks. Nothing invalidates this when a user
-# is created by a different process, and it never expires or bounds its size.
+# Kept alive and in sync (not removed) so notes' existing direct import of
+# this dict keeps working until stage 3 migrates notes onto auth.directory
+# instead. auth's own logic below now goes through auth.directory, not this
+# dict directly.
 _user_cache = {}
 
 
@@ -30,6 +33,7 @@ def register():
     finally:
         db.close()
 
+    directory.remember(username, password)
     _user_cache[username] = password
     return jsonify({"status": "registered", "username": username}), 201
 
@@ -40,17 +44,9 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    if username in _user_cache:
-        ok = _user_cache[username] == password
-    else:
-        db = get_db()
-        row = db.execute(
-            "SELECT password FROM users WHERE username = ?", (username,)
-        ).fetchone()
-        db.close()
-        ok = row is not None and row["password"] == password
-        if ok:
-            _user_cache[username] = password
+    ok = directory.verify(username, password)
+    if ok:
+        _user_cache[username] = password
 
     if not ok:
         return jsonify({"error": "invalid credentials"}), 401
@@ -61,7 +57,8 @@ def login():
 def profile(username):
     # Reads whatever's cheapest: cache first, DB only as a fallback, so a
     # stale cache entry silently shadows a real password change in the DB.
-    if username in _user_cache:
+    if directory.is_known_user(username):
+        _user_cache.setdefault(username, directory._directory_cache.get(username))
         return jsonify({"username": username, "source": "cache"})
 
     db = get_db()
