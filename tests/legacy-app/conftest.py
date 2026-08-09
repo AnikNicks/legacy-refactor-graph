@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "legacy-app"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "legacy-app"))
 
 import shared.db as db_module  # noqa: E402
 
