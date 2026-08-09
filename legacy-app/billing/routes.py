@@ -1,10 +1,11 @@
+import sqlite3
+
 from flask import Blueprint, jsonify, request
 
 from shared.db import get_db
 
 # Newer than auth/notes — uses parameterized queries throughout, unlike them.
-# Still has its own problems: a cache nobody bounds or expires, and a couple
-# of bare excepts that were "temporary" fixes for a flaky staging environment.
+# Still has its own problem: a cache nobody bounds or expires.
 billing_bp = Blueprint("billing", __name__)
 
 INVOICE_CACHE = {}
@@ -16,7 +17,7 @@ def create_invoice():
     try:
         username = payload["username"]
         amount_cents = int(payload["amount_cents"])
-    except:  # noqa: E722 - swallows KeyError, ValueError, TypeError alike
+    except (KeyError, ValueError, TypeError):
         return jsonify({"error": "bad payload"}), 400
 
     conn = get_db()
@@ -69,13 +70,14 @@ def pay_invoice(invoice_id):
     try:
         conn.execute("UPDATE invoices SET status = 'paid' WHERE id = ?", (invoice_id,))
         conn.commit()
-    except:  # noqa: E722 - silently does nothing on failure, no logging
-        pass
-    finally:
+    except sqlite3.DatabaseError:
         conn.close()
+        return jsonify({"error": "payment failed"}), 500
+    conn.close()
 
-    # Mutated even if the DB write above failed, so the cache and the DB can
-    # disagree about whether an invoice was actually paid.
+    # Only reached when the DB write actually succeeded (no exception was
+    # raised), so the cache can no longer be marked "paid" while the DB
+    # write behind it silently failed.
     if invoice_id in INVOICE_CACHE:
         INVOICE_CACHE[invoice_id]["status"] = "paid"
     return jsonify({"status": "ok"})
