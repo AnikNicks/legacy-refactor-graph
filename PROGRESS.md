@@ -3,7 +3,7 @@
 **Pipeline**: legacy-refactor-agent
 **Target**: `legacy-app/`
 **Branch**: `refactor/legacy-app`
-**Status**: in progress — Phase 5, stage 3 next
+**Status**: in progress — Phase 6 (synthesis) next
 
 This file is the human-readable run state. `output/progress_state.json` mirrors it exactly, kept
 in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each phase does and
@@ -17,14 +17,11 @@ in sync after every update, for `viewer/` to read. See `GRAPH.md` for what each 
 - **Phase 3 (test-writer + refactor-planner)** — 21 characterization tests across `tests/test_{auth,notes,billing}.py`, all passing against the unmodified target. 5-stage refactor plan sequenced notes→auth→notes→billing→shared, validated against `RefactorPlan`.
 - **Phase 4 (human gate)** — 5-stage plan approved as presented, no changes requested.
 
+- **Phase 5 (stage execution)** — all 5 stages approved and committed, 30/30 tests passing at the end. Stage 1 `8620dc6` (notes SQL parameterization), stage 2 `692e074` (auth.directory interface), stage 3 `efbd1db` (notes migrated onto auth.directory — the one deliberate behavior change: registered-but-never-logged-in users can now create notes), stage 4 `34af72e` (billing cache/DB drift on payment failure fixed), stage 5 `1b5f347` (SECRET_KEY moved to env var). No stage was rejected or needed a modification round.
+
 ## Active phase — details
 
-**Phase 5 — stage execution.**
-- Stage 1 (`notes` SQL parameterization) — **approved, committed** `8620dc6`. 21/21 tests pass. `output/stage_1_result.json`.
-- Stage 2 (`auth` interface) — **approved, committed** `692e074`. 26/26 tests pass (5 new contract tests). `output/stage_2_result.json`.
-- Stage 3 (`notes` uses auth interface, depends on stage 2) — unblocked, not yet started.
-- Stage 4 (`billing` bare-except fix) — not yet started.
-- Stage 5 (`SECRET_KEY` to env var) — not yet started.
+Phase 6 (synthesizer) not yet dispatched.
 
 ## Note on subagent dispatch
 

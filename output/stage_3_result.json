@@ -1,0 +1,7 @@
+{
+  "stage_id": 3,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "notes/routes.py migrated off auth.routes._user_cache onto auth.directory entirely - no more auth.routes import. Fixes the Phase 1/2 coupling finding. One flagged behavior change: registered-but-never-logged-in users can now create notes (previously incorrectly rejected); covered by a new test. Approved as presented.",
+  "commit_sha": "efbd1db44ed9d3171f93ee0dbc0c3394405eef44"
+}

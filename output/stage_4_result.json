@@ -1,0 +1,7 @@
+{
+  "stage_id": 4,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "pay_invoice's bare except narrowed to sqlite3.DatabaseError; cache is now only updated to 'paid' when the DB write actually succeeded (returns 500 on failure instead of silently swallowing it). create_invoice's except narrowed to (KeyError, ValueError, TypeError). New test forces a DB failure via a fake connection and confirms the cache stays 'pending'. No bare except remains in the module.",
+  "commit_sha": "34af72ea3eaa3610bc92144dcc15955de51964fa"
+}

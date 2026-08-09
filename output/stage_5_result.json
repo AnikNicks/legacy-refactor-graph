@@ -1,0 +1,7 @@
+{
+  "stage_id": 5,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "SECRET_KEY now read from the SECRET_KEY environment variable with an obviously-fake dev-only fallback. Old hardcoded value confirmed removed from source via grep. Two new tests cover the fallback path and that the env var actually takes effect.",
+  "commit_sha": "1b5f347bd7dfc77e0f7558b81ee63c6c7a313bad"
+}

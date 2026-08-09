@@ -11,15 +11,15 @@
     {
       "phase": "5",
       "name": "stage_execution",
-      "status": "in_progress",
-      "summary": "Stage 2 of 5 approved and committed.",
-      "timestamp": "2026-08-09T00:30:00Z",
+      "status": "complete",
+      "summary": "All 5 stages approved and committed; 30/30 tests passing.",
+      "timestamp": "2026-08-09T00:45:00Z",
       "stages": [
         { "id": 1, "module": "notes", "status": "approved", "summary": "SQL parameterized; 21/21 tests pass; commit 8620dc6." },
         { "id": 2, "module": "auth", "status": "approved", "summary": "directory interface introduced; 26/26 tests pass; commit 692e074." },
-        { "id": 3, "module": "notes", "status": "pending", "summary": "Unblocked, not yet started." },
-        { "id": 4, "module": "billing", "status": "pending", "summary": "" },
-        { "id": 5, "module": "shared", "status": "pending", "summary": "" }
+        { "id": 3, "module": "notes", "status": "approved", "summary": "Migrated onto auth.directory; 27/27 tests pass; commit efbd1db." },
+        { "id": 4, "module": "billing", "status": "approved", "summary": "Bare-except cache/DB drift fixed; 28/28 tests pass; commit 34af72e." },
+        { "id": 5, "module": "shared", "status": "approved", "summary": "SECRET_KEY moved to env var; 30/30 tests pass; commit 1b5f347." }
       ]
     },
     { "phase": "6", "name": "synthesis", "status": "not_started", "summary": "", "timestamp": null }
