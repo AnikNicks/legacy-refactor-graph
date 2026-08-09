@@ -1,0 +1,7 @@
+{
+  "stage_id": 4,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "list_products replaced its per-product stock query with a single LEFT JOIN. grep confirms exactly one db.execute call in the function. 20/20 tests pass.",
+  "commit_sha": "e2a7b52c3326c9ae3e2387fae4d32599ff7baeee"
+}

@@ -1,0 +1,7 @@
+{
+  "stage_id": 3,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "checkout requires idempotency_key; a repeat with the same key returns the original order without a second decrement. orders.idempotency_key is UNIQUE at the schema level. 20/20 tests pass.",
+  "commit_sha": "df1b697a419b68152af93597544b9da1acb0806f"
+}

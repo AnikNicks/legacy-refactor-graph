@@ -1,0 +1,7 @@
+{
+  "stage_id": 1,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "Atomic guarded UPDATE replaces the read-then-write decrement; over-decrement now rejected (400) instead of going negative. 16/16 tests pass. Approved as presented.",
+  "commit_sha": "fb6e26d6051bd5995933e9f3bb9880ab35cb6793"
+}

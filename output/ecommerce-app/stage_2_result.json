@@ -1,0 +1,7 @@
+{
+  "stage_id": 2,
+  "status": "approved",
+  "tests_passed": true,
+  "summary": "cart.checkout now calls inventory.service.decrement_stock(conn=db) instead of duplicating the decrement. Found and fixed a real transactional-safety bug during implementation: the interface needed an optional shared connection so a checkout's earlier-item decrement rolls back when a later item fails - proven by a new test. checkout now rejects insufficient-stock orders. 18/18 tests pass.",
+  "commit_sha": "26085d830c4d2388d424a35fd8bbea50ce4ea203"
+}
