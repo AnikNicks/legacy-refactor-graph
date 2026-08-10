@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest + guardrail validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install flask pydantic pytest
+
+      - name: Run each target's test suite (scoped separately - see tests/*/conftest.py)
+        run: |
+          for target in legacy-app ecommerce-app healthcare-app fintech-app; do
+            echo "=== $target ==="
+            python -m pytest "tests/$target/" -q
+          done
+
+      - name: Validate every phase output against its pydantic schema
+        run: |
+          declare -A SCHEMA_FOR=(
+            [archaeology.json]=ArchaeologyReport
+            [risk_assessment.json]=RiskAssessment
+            [refactor_plan.json]=RefactorPlan
+          )
+          for target in legacy-app ecommerce-app healthcare-app fintech-app; do
+            for file in "${!SCHEMA_FOR[@]}"; do
+              python scripts/validate_state.py validate \
+                --schema "${SCHEMA_FOR[$file]}" \
+                --file "output/$target/$file"
+            done
+            for stage_file in output/"$target"/stage_*_result.json; do
+              [ -e "$stage_file" ] || continue
+              python scripts/validate_state.py validate --schema StageResult --file "$stage_file"
+            done
+          done
+
+  viewer:
+    name: viewer typecheck + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+
+      - working-directory: viewer
+        run: npm ci
+
+      - working-directory: viewer
+        run: npx tsc -b
+
+      - working-directory: viewer
+        run: npm run build
