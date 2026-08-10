@@ -77,28 +77,9 @@ actual (post-refactor) implementation, e.g. the fintech app's fixed atomic, idem
 
 ![Source viewer showing the fixed double-spend transfer code](docs/screenshots/06-source-viewer.jpg)
 
-## Architecture
+## Project Architecture
 
-```
-Phase 0  preflight(target)
-              │
-Phase 1  archaeologist   → output/<target>/archaeology.json
-              │
-Phase 2  risk-assessor   → output/<target>/risk_assessment.json
-              │
-Phase 3  fan-out (parallel)
-    ┌─────────────┴─────────────┐
-    test-writer         refactor-planner
-    → tests/<target>/   → output/<target>/refactor_plan.json
-    └─────────────┬─────────────┘
-              │
-Phase 4  HUMAN GATE (no agent — approve/reject the whole plan)
-              │
-Phase 5  stage-executor × N (sequential; per-stage human checkpoint)
-         → output/<target>/stage_N_result.json (+ commit, only after approval)
-              │
-Phase 6  synthesizer     → output/<target>/synthesis_report.md
-```
+<img src="docs/screenshots/project-architecture.svg" alt="Project architecture: target codebase flows through Phase 0 Preflight, Phase 1 Archaeologist, Phase 2 Risk Assessor, a Phase 3 parallel fan-out of Test Writer and Refactor Planner, Phase 4 Human Gate, Phase 5 Stage Executor run once per stage, and Phase 6 Synthesizer, producing a modernization roadmap." width="720">
 
 | Agent | Tools | Reads | Writes |
 |---|---|---|---|
