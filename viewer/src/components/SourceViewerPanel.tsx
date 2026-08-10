@@ -12,7 +12,7 @@ export function SourceViewerPanel({ target }: { target: string }) {
     setSelected(null);
     setContent("");
 
-    fetch(`/source-list/${target}?t=${Date.now()}`)
+    fetch(`source-data/${target}/__index__.json?t=${Date.now()}`)
       .then((r) => r.json())
       .then((list: string[]) => {
         if (cancelled) return;
@@ -33,7 +33,7 @@ export function SourceViewerPanel({ target }: { target: string }) {
     if (!selected) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`/source-file/${target}/${selected}?t=${Date.now()}`)
+    fetch(`source-data/${target}/${selected}?t=${Date.now()}`)
       .then((r) => r.text())
       .then((text) => {
         if (!cancelled) setContent(text);

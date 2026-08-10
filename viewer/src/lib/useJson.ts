@@ -20,7 +20,7 @@ export function useJson<T>(path: string, pollMs = 3000): { data: T | null; error
 
     const load = async () => {
       try {
-        const res = await fetch(`/data/${path}?t=${Date.now()}`);
+        const res = await fetch(`data/${path}?t=${Date.now()}`);
         if (!res.ok) {
           if (!cancelled) {
             setData(null);

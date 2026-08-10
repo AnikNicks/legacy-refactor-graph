@@ -40,8 +40,8 @@ function listSourceFiles(dir: string, base: string, acc: string[] = []): string[
 // pipeline's own output/ directory, read fresh on every request — so the
 // dashboard reflects whatever the orchestrator just wrote without any
 // copy/sync step or rebuild. Dev only; `npm run build` uses
-// scripts/sync-data.mjs to snapshot output/ once since a static build has
-// no server to read from live.
+// scripts/sync-data.mjs to snapshot output/ once since a static build (e.g.
+// GitHub Pages) has no server to read from live.
 function liveOutputData(): Plugin {
   return {
     name: "live-output-data",
@@ -70,19 +70,31 @@ function liveOutputData(): Plugin {
 }
 
 // Serves the actual source of each example target, read live from the repo
-// root — /source-list/<target> returns a JSON array of relative file paths,
-// /source-file/<target>/<path> returns one file's raw text. This is what
-// lets the viewer's source panel show the real fixture code, not a copy.
+// root, at the same URL shape scripts/sync-source.mjs produces as static
+// files for a production build:
+//   /source-data/<target>/__index__.json  → JSON array of relative file paths
+//   /source-data/<target>/<path>          → one file's raw text
+// Using one identical shape for both means SourceViewerPanel never has to
+// know whether it's talking to this live dev middleware or to static files
+// on GitHub Pages.
 function sourceServer(): Plugin {
   return {
     name: "source-server",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? "";
+        if (!url.startsWith("/source-data/")) {
+          next();
+          return;
+        }
 
-        if (url.startsWith("/source-list/")) {
-          const target = decodeURIComponent(url.replace("/source-list/", "").split("?")[0]);
-          const targetDir = safeJoin(repoRoot, target);
+        const rest = decodeURIComponent(url.replace("/source-data/", "").split("?")[0]);
+        const slashIdx = rest.indexOf("/");
+        const target = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+        const relPath = slashIdx === -1 ? "" : rest.slice(slashIdx + 1);
+        const targetDir = safeJoin(repoRoot, target);
+
+        if (relPath === "__index__.json") {
           if (!targetDir || !existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
             res.statusCode = 404;
             res.end("[]");
@@ -95,30 +107,25 @@ function sourceServer(): Plugin {
           return;
         }
 
-        if (url.startsWith("/source-file/")) {
-          const rest = decodeURIComponent(url.replace("/source-file/", "").split("?")[0]);
-          const slashIdx = rest.indexOf("/");
-          const target = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
-          const relPath = slashIdx === -1 ? "" : rest.slice(slashIdx + 1);
-          const targetDir = safeJoin(repoRoot, target);
-          const filePath = targetDir ? safeJoin(targetDir, relPath) : null;
-          if (!filePath || !existsSync(filePath)) {
-            res.statusCode = 404;
-            res.end("not found");
-            return;
-          }
-          res.setHeader("Content-Type", "text/plain; charset=utf-8");
-          res.setHeader("Cache-Control", "no-store");
-          res.end(readFileSync(filePath));
+        const filePath = targetDir ? safeJoin(targetDir, relPath) : null;
+        if (!filePath || !existsSync(filePath)) {
+          res.statusCode = 404;
+          res.end("not found");
           return;
         }
-
-        next();
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.end(readFileSync(filePath));
       });
     },
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // GitHub Pages serves a project site under /<repo-name>/, not the domain
+  // root — the dev server always serves at root regardless of this value,
+  // so it's conditional on build mode rather than needing base-aware
+  // middleware matching above.
+  base: mode === "production" ? "/legacy-refactor-graph/" : "/",
   plugins: [react(), liveOutputData(), sourceServer()],
-});
+}));

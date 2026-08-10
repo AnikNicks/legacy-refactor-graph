@@ -7,5 +7,6 @@ venv/
 node_modules/
 viewer/dist/
 viewer/public/data/
+viewer/public/source-data/
 viewer/*.tsbuildinfo
 .ruff_cache/
